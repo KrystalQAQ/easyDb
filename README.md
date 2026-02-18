@@ -227,6 +227,37 @@ DELETE /api/admin/users/:username
 - 生产只给角色开放必要表，并收紧 `ALLOWED_SQL_TYPES`。
 - 审计日志建议定期归档并接入告警系统。
 
+## 10. GitHub Actions Docker 发布
+
+已内置工作流：`.github/workflows/docker-image.yml`
+
+- 触发：push 到 `main/master` 或打 `v*` tag
+- 构建：`linux/amd64` + `linux/arm64`
+- 推送仓库：`ghcr.io/<owner>/<repo>`
+
+## 11. Docker 一键部署命令
+
+先准备：
+
+- `/opt/sql-gateway/.env`
+- `/opt/sql-gateway/frontend-dist/`（Vue 打包产物，含 `index.html`）
+
+然后执行：
+
+```bash
+sudo mkdir -p /opt/sql-gateway/frontend-dist /opt/sql-gateway/logs && \
+sudo docker pull ghcr.io/<owner>/<repo>:latest && \
+(sudo docker rm -f sql-gateway >/dev/null 2>&1 || true) && \
+sudo docker run -d \
+  --name sql-gateway \
+  --restart unless-stopped \
+  --env-file /opt/sql-gateway/.env \
+  -p 3000:3000 \
+  -v /opt/sql-gateway/frontend-dist:/app/frontend-dist:ro \
+  -v /opt/sql-gateway/logs:/app/logs \
+  ghcr.io/<owner>/<repo>:latest
+```
+
 ## 9. Vue 前后端分离接入（网关根路径托管）
 
 目标：访问网关根路径 `/` 直接打开 Vue 页面，同时 `/api/*` 继续走后端接口。
