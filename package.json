@@ -1,0 +1,35 @@
+{
+  "name": "mysql-sql-gateway",
+  "version": "1.0.0",
+  "description": "A secure SQL-like gateway for frontend apps to operate MySQL",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "hash:password": "node scripts/hash-password.js",
+    "auth:init": "node scripts/init-auth-db.js"
+  },
+  "keywords": [
+    "mysql",
+    "sql",
+    "gateway",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.1",
+    "express-rate-limit": "^7.4.1",
+    "express": "^4.21.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
+    "mysql2": "^3.14.3",
+    "node-sql-parser": "^5.3.13"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}

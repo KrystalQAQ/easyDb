@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MySQL Gateway Demo</title>
+    <style>
+      :root {
+        --bg: #f6f1e7;
+        --panel: #fffaf2;
+        --line: #d9cbb6;
+        --text: #1f252b;
+        --brand: #12624f;
+        --brand2: #3e5f7a;
+        --warn: #884132;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at 15% 10%, #efe3d1, var(--bg) 46%, #e5efe9);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 22px; }
+      h1 { margin: 0 0 10px; letter-spacing: .02em; }
+      .sub { margin: 0 0 16px; opacity: .8; }
+      .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+      @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        box-shadow: 0 8px 20px rgba(0,0,0,.05);
+      }
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+      label { display: block; margin-bottom: 10px; font-size: 14px; }
+      input, textarea {
+        width: 100%;
+        margin-top: 6px;
+        border: 1px solid #bdb3a5;
+        border-radius: 10px;
+        padding: 10px;
+        font: inherit;
+        background: #fff;
+      }
+      textarea { min-height: 100px; resize: vertical; }
+      button {
+        border: 0;
+        border-radius: 10px;
+        color: #fff;
+        cursor: pointer;
+        padding: 10px 14px;
+        font: inherit;
+        background: var(--brand);
+      }
+      button.alt { background: var(--brand2); }
+      button.warn { background: var(--warn); }
+      button:disabled { opacity: .6; cursor: not-allowed; }
+      .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #ece1d1; }
+      pre {
+        margin: 0;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: #fbf6ed;
+        min-height: 220px;
+        padding: 12px;
+        overflow: auto;
+      }
+      .ok { color: #1b7f40; }
+      .bad { color: #a82f27; }
+      .muted { opacity: .75; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>MySQL SQL Gateway Demo</h1>
+      <p class="sub">Login, optional request encryption, SQL execute, and admin audit logs.</p>
+
+      <section class="grid">
+        <article class="card">
+          <h3>Auth & Encryption</h3>
+          <label>API Base URL <input id="apiBase" value="http://localhost:3003" /></label>
+          <label>Username <input id="username" value="admin" /></label>
+          <label>Password <input id="password" type="password" value="admin123" /></label>
+          <label>
+            <input id="encryptToggle" type="checkbox" checked style="width:auto;margin-right:6px" />
+            Enable encrypted payload
+          </label>
+          <label>Shared Encryption Password <input id="sharedPassword" type="password" value="replace-with-shared-password" /></label>
+          <div class="row">
+            <button id="btnLogin">Login</button>
+            <button id="btnMe" class="alt">Check /api/auth/me</button>
+            <button id="btnLogout" class="warn">Logout</button>
+            <span id="roleTag" class="pill">role: -</span>
+          </div>
+          <p class="muted">Token preview: <span id="tokenPreview">(none)</span></p>
+        </article>
+
+        <article class="card">
+          <h3>SQL Runner</h3>
+          <label>SQL <textarea id="sql">select id,name from users where id > ? limit 20</textarea></label>
+          <label>Params JSON Array <textarea id="params">[100]</textarea></label>
+          <div class="row">
+            <button id="btnSql">Run SQL</button>
+            <button id="btnSample" class="alt">Load Sample</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid" style="margin-top:14px">
+        <article class="card">
+          <h3>Admin Audit Logs</h3>
+          <label>Query String <input id="auditQuery" value="limit=50" /></label>
+          <p class="muted">Example: <code>limit=100&status=ok</code></p>
+          <div class="row">
+            <button id="btnAudit" class="alt">Load /api/admin/audit-logs</button>
+          </div>
+        </article>
+        <article class="card">
+          <h3>Admin User Management</h3>
+          <label>User Query <input id="userQuery" value="limit=50" /></label>
+          <label>Target Username <input id="targetUsername" value="analyst" /></label>
+          <label>Target Role <input id="targetRole" value="analyst" /></label>
+          <label>Target Status <input id="targetStatus" value="active" /></label>
+          <label>Password/New Password <input id="targetPassword" type="password" value="analyst123" /></label>
+          <div class="row">
+            <button id="btnUserList" class="alt">List Users</button>
+            <button id="btnUserGet" class="alt">Get User</button>
+            <button id="btnUserCreate">Create</button>
+            <button id="btnUserUpdate">Update</button>
+            <button id="btnUserResetPwd" class="warn">Reset Pwd</button>
+            <button id="btnUserDisable" class="warn">Disable</button>
+            <button id="btnUserEnable" class="alt">Enable</button>
+            <button id="btnUserDelete" class="warn">Delete</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="card" style="margin-top:14px">
+        <h3>Response</h3>
+        <p id="status" class="muted">Ready</p>
+        <pre id="output">{}</pre>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
