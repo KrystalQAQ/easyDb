@@ -103,12 +103,18 @@ module.exports = {
     enabled: parseBoolean(process.env.FRONTEND_ENABLED, true),
     distDir: path.resolve(process.cwd(), process.env.FRONTEND_DIST_DIR || "frontend-dist"),
   },
+  https: {
+    enabled: parseBoolean(process.env.HTTPS_ENABLED, false),
+    certPath: path.resolve(process.cwd(), process.env.HTTPS_CERT_PATH || "certs/server.pem"),
+    keyPath: path.resolve(process.cwd(), process.env.HTTPS_KEY_PATH || "certs/server-key.pem"),
+  },
   csp: {
     enabled: parseBoolean(process.env.CSP_ENABLED, true),
     imgSrc: cspImgSrc,
     connectSrc: cspConnectSrc,
     scriptSrc: cspScriptSrc,
   },
+  coopEnabled: parseBoolean(process.env.COOP_ENABLED, true),
   requestEncryption: {
     enabled: parseBoolean(process.env.REQUEST_ENCRYPTION_ENABLED, true),
     allowPlaintext: parseBoolean(process.env.REQUEST_ENCRYPTION_ALLOW_PLAINTEXT, true),

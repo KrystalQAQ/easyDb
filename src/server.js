@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const path = require("path");
 const fs = require("fs");
+const https = require("https");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
@@ -11,7 +12,9 @@ const {
   port,
   corsOrigins,
   frontend,
+  https: httpsConfig,
   csp,
+  coopEnabled,
   rateLimit: rateLimitConfig,
   auditQueryMaxLimit,
   adminUserQueryMaxLimit,
@@ -39,6 +42,7 @@ const app = express();
 
 app.use(
   helmet({
+    crossOriginOpenerPolicy: coopEnabled ? { policy: "same-origin" } : false,
     contentSecurityPolicy: csp.enabled
       ? {
           useDefaults: true,
@@ -634,6 +638,30 @@ app.use((err, _req, res, _next) => {
   return res.status(500).json({ ok: false, error: err.message || "internal error" });
 });
 
-app.listen(port, () => {
-  console.log(`SQL gateway listening on http://localhost:${port}`);
-});
+function startServer() {
+  if (!httpsConfig.enabled) {
+    app.listen(port, () => {
+      console.log(`SQL gateway listening on http://localhost:${port}`);
+    });
+    return;
+  }
+
+  const tlsOptions = {
+    cert: null,
+    key: null,
+  };
+
+  try {
+    tlsOptions.cert = fs.readFileSync(httpsConfig.certPath);
+    tlsOptions.key = fs.readFileSync(httpsConfig.keyPath);
+  } catch (err) {
+    console.error("[https] failed to read cert/key:", err.message);
+    process.exit(1);
+  }
+
+  https.createServer(tlsOptions, app).listen(port, () => {
+    console.log(`SQL gateway listening on https://localhost:${port}`);
+  });
+}
+
+startServer();

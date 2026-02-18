@@ -84,19 +84,28 @@ function toBase64(uint8) {
   return btoa(s);
 }
 
+function getWebCryptoOrThrow() {
+  if (typeof globalThis.crypto === "undefined" || !globalThis.crypto || !globalThis.crypto.subtle) {
+    throw new Error("WebCrypto is unavailable. Use HTTPS/localhost or disable encrypted payload.");
+  }
+  return globalThis.crypto;
+}
+
 async function deriveKey(password) {
+  const webCrypto = getWebCryptoOrThrow();
   const raw = new TextEncoder().encode(password);
-  const hash = await crypto.subtle.digest("SHA-256", raw);
-  return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt"]);
+  const hash = await webCrypto.subtle.digest("SHA-256", raw);
+  return webCrypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt"]);
 }
 
 async function encryptPayload(payload) {
+  const webCrypto = getWebCryptoOrThrow();
   const pwd = els.sharedPassword.value;
   if (!pwd) throw new Error("Shared encryption password is required");
   const key = await deriveKey(pwd);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const iv = webCrypto.getRandomValues(new Uint8Array(12));
   const plain = new TextEncoder().encode(JSON.stringify(payload));
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain));
+  const encrypted = new Uint8Array(await webCrypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain));
   const tagLen = 16;
   return {
     encryptedPayload: {

@@ -258,6 +258,24 @@ sudo docker run -d \
   ghcr.io/<owner>/<repo>:latest
 ```
 
+## 12. 内网 HTTPS（Express 直连证书）
+
+为保证浏览器可用 `crypto.subtle`，建议开启 HTTPS。
+
+`.env` 增加：
+
+```env
+HTTPS_ENABLED=true
+HTTPS_CERT_PATH=./certs/server.pem
+HTTPS_KEY_PATH=./certs/server-key.pem
+```
+
+Docker 场景需挂载证书目录到容器：
+
+```bash
+-v /opt/sql-gateway/certs:/app/certs:ro
+```
+
 ## 9. Vue 前后端分离接入（网关根路径托管）
 
 目标：访问网关根路径 `/` 直接打开 Vue 页面，同时 `/api/*` 继续走后端接口。
@@ -285,4 +303,6 @@ sudo docker run -d \
 - 刷新 404：通常是没有开启 history fallback，当前网关已处理
 - CSP 报错（例如图片被拦截）：这不是 CORS。请配置 `CSP_IMG_SRC` 白名单，例如 `CSP_IMG_SRC='self',data:,https://wb.254253.xyz,https://tvax4.sinaimg.cn`
 - 仍建议避免内联脚本，使用外链 JS/CSS（当前 demo 已按此处理）
+- 浏览器提示 COOP 在不安全源被忽略：可切 HTTPS，或在开发/内网场景设置 `COOP_ENABLED=false`
+- 前端报 `Cannot read properties of undefined (reading 'digest')`：通常是 `crypto.subtle` 在 HTTP 非 localhost 不可用。请使用 HTTPS/localhost，或关闭前端加密开关（仅依赖 HTTPS + JWT）。
 - 跨域：同源部署后通常不再需要前端额外跨域配置

@@ -14,6 +14,9 @@ CSP_IMG_SRC='self',data:,https://wb.254253.xyz,https://tvax4.sinaimg.cn
 CSP_CONNECT_SRC='self'
 CSP_SCRIPT_SRC='self'
 
+# HTTP 非 localhost 环境下如需消除 COOP 提示可关闭
+COOP_ENABLED=true
+
 # 是否启用 JWT 鉴权
 REQUIRE_AUTH=true
 
@@ -67,6 +70,11 @@ FRONTEND_ENABLED=true
 
 # Vue 打包目录（包含 index.html）
 FRONTEND_DIST_DIR=./frontend-dist
+
+# HTTPS 配置（内网建议开启；需把根证书信任到访问终端）
+HTTPS_ENABLED=false
+HTTPS_CERT_PATH=./certs/server.pem
+HTTPS_KEY_PATH=./certs/server-key.pem
 
 # 请求参数加密（AES-256-GCM）
 REQUEST_ENCRYPTION_ENABLED=true
