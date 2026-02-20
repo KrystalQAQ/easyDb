@@ -14,6 +14,44 @@
 - 管理员 API（用户管理、审计查询）
 - SQL 限流与审计日志落盘
 
+## 系统架构
+
+### 架构分层
+
+- 接入层：`Nginx` 承载前端静态资源，并将固定接口 `/api/auth/login`、`/api/auth/me`、`/api/sql`、`/api/health` 转发到网关
+- 网关层：`Node.js + Express`，负责统一鉴权、项目路由解析、SQL 安全校验、审计与限流
+- 平台控制层：`/api/platform/*` 与 `/api/admin/*`，提供项目开通、环境参数、变量管理、Nginx 配置管理、用户与审计能力
+- 数据层：
+  - 平台库（如 `easydb_platform`）：存放 `gateway_users`、项目/环境/变量元数据
+  - 业务库（每项目每环境）：存放业务表（可自动初始化）
+
+### 逻辑拓扑
+
+```text
+Browser / App
+    |
+    v
+Nginx (static + /api reverse proxy)
+    |
+    v
+EasyDB Gateway (Express)
+  ├─ Auth/Admin APIs (/api/auth/*, /api/admin/*, /api/platform/*)
+  ├─ Data APIs (/api/gw/:projectKey/:env/*)
+  ├─ SQL Policy + RateLimit + Audit
+  └─ Nginx Conf Manager (generate/save/reload)
+    |
+    +--> Platform DB (gateway_users, projects, envs, vars)
+    |
+    +--> Project DBs (crm_prod, erp_prod, ...)
+```
+
+### 核心请求流程
+
+1. 登录：前端调用 `/api/auth/login`，在平台库校验 `gateway_users`，返回 JWT
+2. 业务访问：前端调用固定 `/api/sql`（经 Nginx 转发到目标 `project/env`），网关执行 SQL AST 策略校验后访问业务库
+3. 项目开通：管理员创建项目后，系统自动创建默认环境、可选建库建表、可选生成 Nginx conf
+4. 配置变更：在控制台修改环境参数/变量/Nginx 配置，保存后可触发 Nginx reload
+
 ## 代码结构（已模块化）
 
 ```text
@@ -194,6 +232,7 @@ pnpm frontend:dev
 - `docker-compose.yml`
 - `nginx/nginx.conf`
 - `runtime/nginx/conf.d/default.conf`
+- `runtime/nginx/conf.d/00-log-format.conf`
 
 启动：
 
@@ -208,6 +247,7 @@ docker compose up -d --build
 - 在控制台“项目配置中心”可直接编辑该 conf
 - 保存后可点“保存后重载 Nginx”（依赖 `NGINX_RELOAD_COMMAND`）
 - 推荐在 `.env` 设置：`NGINX_RELOAD_COMMAND=docker exec easydb-nginx nginx -s reload`
+- 默认站点会拦截 `/api/sql`（防止误命中 `_` 站点导致落到 `default/prod`）
 
 ## GitHub Actions（已同步）
 
