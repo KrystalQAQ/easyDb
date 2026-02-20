@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: easydb-gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./logs:/app/logs
+      - ./runtime/nginx/conf.d:/app/runtime/nginx/conf.d
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: easydb-nginx
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./runtime/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./frontend-app/dist:/usr/share/nginx/html:ro

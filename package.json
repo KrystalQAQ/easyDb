@@ -6,8 +6,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "frontend:dev": "pnpm --dir frontend-app dev",
+    "frontend:build": "pnpm --dir frontend-app build",
     "hash:password": "node scripts/hash-password.js",
-    "auth:init": "node scripts/init-auth-db.js"
+    "auth:init": "node scripts/init-auth-db.js",
+    "platform:init": "node scripts/init-platform-db.js"
   },
   "keywords": [
     "mysql",

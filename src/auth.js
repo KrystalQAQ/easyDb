@@ -16,18 +16,20 @@ async function verifyPassword(plainPassword, storedPassword) {
 }
 
 function issueToken(user) {
+  const payload = {
+    sub: user.username,
+    role: user.role,
+  };
+
   return jwt.sign(
-    {
-      sub: user.username,
-      role: user.role,
-    },
+    payload,
     jwtSecret,
     { expiresIn: jwtExpiresIn }
   );
 }
 
 async function login(req, res) {
-  const parsed = readRequestPayload(req.body);
+  const parsed = readRequestPayload(req.body, req.requestPayloadOptions || {});
   if (!parsed.ok) {
     return res.status(400).json({ ok: false, error: parsed.error });
   }
@@ -90,6 +92,7 @@ function authenticate(req, res, next) {
       username: payload.sub,
       role: payload.role || "",
     };
+
     return next();
   } catch (_err) {
     return res.status(401).json({ ok: false, error: "invalid or expired token" });

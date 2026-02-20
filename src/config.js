@@ -73,6 +73,17 @@ const authUsers = parseAuthUsers(
     "admin:$2b$12$mLx1iKiVhFY8vgs.uuV.JeU0QhF9yRDu6cMA1tlutj7u/TWz4HRwO:admin;analyst:$2b$12$q1pEp4/o6svhpA.Rse.tAeUKVmk40YjYQoL5FhwPNARAdSXVUO/ci:analyst"
 );
 const roleTableMap = parseRoleTables(process.env.ROLE_TABLES || "admin:*;analyst:users|orders");
+const defaultProjectKey = (process.env.DEFAULT_PROJECT_KEY || "default").trim().toLowerCase();
+const defaultProjectEnv = (process.env.DEFAULT_PROJECT_ENV || "prod").trim().toLowerCase();
+const platformDefaultEnvKey = (process.env.PLATFORM_DEFAULT_ENV_KEY || defaultProjectEnv || "prod")
+  .trim()
+  .toLowerCase();
+const platformDefaultEnvStatus = (process.env.PLATFORM_DEFAULT_ENV_STATUS || "active").trim().toLowerCase();
+const platformDefaultDbNameTemplate = (process.env.PLATFORM_DEFAULT_DB_NAME_TEMPLATE || "{projectKey}_{env}").trim();
+const platformDefaultInitTables = parseCsv(process.env.PLATFORM_DEFAULT_INIT_TABLES || "users,orders,products")
+  .map((item) => item.toLowerCase());
+const nginxConfFileNameTemplate = (process.env.NGINX_CONF_FILENAME_TEMPLATE || "{projectKey}_{env}.conf").trim();
+const nginxServerNameTemplate = (process.env.NGINX_SERVER_NAME_TEMPLATE || "{projectKey}.local").trim();
 
 module.exports = {
   port: parseNumber(process.env.PORT, 3000),
@@ -116,9 +127,55 @@ module.exports = {
   },
   coopEnabled: parseBoolean(process.env.COOP_ENABLED, true),
   requestEncryption: {
-    enabled: parseBoolean(process.env.REQUEST_ENCRYPTION_ENABLED, true),
+    enabled: parseBoolean(process.env.REQUEST_ENCRYPTION_ENABLED, false),
     allowPlaintext: parseBoolean(process.env.REQUEST_ENCRYPTION_ALLOW_PLAINTEXT, true),
     password: process.env.REQUEST_ENCRYPTION_PASSWORD || "replace-with-long-shared-password",
+  },
+  defaultProject: {
+    key: defaultProjectKey,
+    env: defaultProjectEnv,
+  },
+  platform: {
+    configCacheTtlMs: parseNumber(process.env.PROJECT_CONFIG_CACHE_TTL_MS, 15000),
+    configEncryptionKey: process.env.CONFIG_ENCRYPTION_KEY || process.env.JWT_SECRET || "",
+    defaultEnv: {
+      autoCreateOnProjectCreate: parseBoolean(process.env.PLATFORM_AUTO_CREATE_DEFAULT_ENV, true),
+      envKey: platformDefaultEnvKey,
+      status: ["active", "disabled"].includes(platformDefaultEnvStatus) ? platformDefaultEnvStatus : "active",
+      db: {
+        host: process.env.PLATFORM_DEFAULT_DB_HOST || process.env.DB_HOST || "127.0.0.1",
+        port: parseNumber(process.env.PLATFORM_DEFAULT_DB_PORT, parseNumber(process.env.DB_PORT, 3306)),
+        user: process.env.PLATFORM_DEFAULT_DB_USER || process.env.DB_USER || "root",
+        password:
+          process.env.PLATFORM_DEFAULT_DB_PASSWORD !== undefined
+            ? process.env.PLATFORM_DEFAULT_DB_PASSWORD
+            : process.env.DB_PASSWORD || "",
+        databaseTemplate: platformDefaultDbNameTemplate || "{projectKey}_{env}",
+        autoCreateDatabase: parseBoolean(process.env.PLATFORM_AUTO_CREATE_DATABASE, true),
+        charset: (process.env.PLATFORM_DEFAULT_DB_CHARSET || "utf8mb4").trim(),
+        collate: (process.env.PLATFORM_DEFAULT_DB_COLLATE || "utf8mb4_unicode_ci").trim(),
+      },
+      initTables: {
+        enabled: parseBoolean(process.env.PLATFORM_AUTO_INIT_TABLES, true),
+        tables: platformDefaultInitTables.length > 0 ? platformDefaultInitTables : ["users", "orders", "products"],
+      },
+    },
+    tables: {
+      projects: process.env.PLATFORM_PROJECT_TABLE || "gateway_projects",
+      projectEnvs: process.env.PLATFORM_PROJECT_ENV_TABLE || "gateway_project_envs",
+      envVars: process.env.PLATFORM_ENV_VAR_TABLE || "gateway_project_env_vars",
+    },
+  },
+  nginx: {
+    enabled: parseBoolean(process.env.NGINX_CONFIG_ENABLED, true),
+    autoGenerateOnProjectCreate: parseBoolean(process.env.NGINX_AUTO_GENERATE_ON_PROJECT_CREATE, true),
+    confDir: path.resolve(process.cwd(), process.env.NGINX_CONF_DIR || "./runtime/nginx/conf.d"),
+    confFileNameTemplate: nginxConfFileNameTemplate || "{projectKey}_{env}.conf",
+    serverNameTemplate: nginxServerNameTemplate || "{projectKey}.local",
+    listenPort: parseNumber(process.env.NGINX_LISTEN_PORT, 80),
+    frontendRoot: process.env.NGINX_FRONTEND_ROOT || "/usr/share/nginx/html",
+    upstreamOrigin: process.env.NGINX_UPSTREAM_ORIGIN || "http://gateway:3000",
+    reloadCommand: process.env.NGINX_RELOAD_COMMAND || "",
   },
   allowedSqlTypes: new Set(allowedSqlTypes.map((v) => v.toLowerCase())),
   allowedTables: new Set(allowedTables.map((v) => v.toLowerCase())),

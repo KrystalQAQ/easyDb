@@ -1,148 +1,639 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MySQL Gateway Demo</title>
+    <title>EasyDB 平台控制台</title>
     <style>
       :root {
-        --bg: #f6f1e7;
-        --panel: #fffaf2;
-        --line: #d9cbb6;
-        --text: #1f252b;
-        --brand: #12624f;
-        --brand2: #3e5f7a;
-        --warn: #884132;
+        --bg-a: #f4e9d8;
+        --bg-b: #e6f1eb;
+        --panel: rgba(255, 251, 244, 0.94);
+        --panel-strong: #fffaf2;
+        --line: #d6c5aa;
+        --text: #182128;
+        --sub: #5e6a72;
+        --brand: #0f6b5f;
+        --brand-2: #1d4f6b;
+        --warn: #9a5a2d;
+        --danger: #a13232;
+        --ok: #2f7d54;
       }
-      * { box-sizing: border-box; }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
-        background: radial-gradient(circle at 15% 10%, #efe3d1, var(--bg) 46%, #e5efe9);
         color: var(--text);
-        font-family: "Segoe UI", Tahoma, sans-serif;
+        font-family: "LXGW WenKai Screen", "PingFang SC", "Microsoft YaHei UI", "Noto Sans SC", sans-serif;
+        background:
+          radial-gradient(circle at 8% 12%, #f8deba 0%, transparent 30%),
+          radial-gradient(circle at 88% 8%, #d8ebde 0%, transparent 28%),
+          linear-gradient(145deg, var(--bg-a), var(--bg-b));
       }
-      .wrap { max-width: 1120px; margin: 0 auto; padding: 22px; }
-      h1 { margin: 0 0 10px; letter-spacing: .02em; }
-      .sub { margin: 0 0 16px; opacity: .8; }
-      .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
-      @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 14px;
+
+      .workspace {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 310px 1fr;
+      }
+
+      .sidebar {
+        border-right: 1px solid rgba(214, 197, 170, 0.85);
+        background: rgba(255, 251, 244, 0.8);
+        backdrop-filter: blur(3px);
+        padding: 18px 16px;
+      }
+
+      .brand {
+        margin-bottom: 14px;
         padding: 14px;
-        box-shadow: 0 8px 20px rgba(0,0,0,.05);
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel-strong);
       }
-      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-      label { display: block; margin-bottom: 10px; font-size: 14px; }
-      input, textarea {
+
+      .brand h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .brand p {
+        margin: 6px 0 0;
+        font-size: 13px;
+        color: var(--sub);
+      }
+
+      .sidebar-block {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .sidebar-block h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+      }
+
+      .help {
+        margin: 0 0 8px;
+        font-size: 12px;
+        color: var(--sub);
+        line-height: 1.45;
+      }
+
+      .field {
+        display: block;
+        margin-bottom: 9px;
+        font-size: 12px;
+        color: var(--sub);
+      }
+
+      input,
+      textarea,
+      select {
         width: 100%;
         margin-top: 6px;
-        border: 1px solid #bdb3a5;
+        padding: 9px 10px;
+        border: 1px solid #c9bca6;
         border-radius: 10px;
-        padding: 10px;
-        font: inherit;
         background: #fff;
+        color: var(--text);
+        font: inherit;
       }
-      textarea { min-height: 100px; resize: vertical; }
+
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+
+      .switch {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--sub);
+      }
+
+      .switch input {
+        width: auto;
+        margin: 0;
+      }
+
       button {
         border: 0;
         border-radius: 10px;
-        color: #fff;
-        cursor: pointer;
-        padding: 10px 14px;
+        padding: 9px 12px;
         font: inherit;
+        color: #fff;
         background: var(--brand);
+        cursor: pointer;
+        transition: transform 0.14s ease, opacity 0.14s ease, box-shadow 0.14s ease;
       }
-      button.alt { background: var(--brand2); }
-      button.warn { background: var(--warn); }
-      button:disabled { opacity: .6; cursor: not-allowed; }
-      .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #ece1d1; }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(15, 107, 95, 0.23);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        transform: none;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .btn-sub {
+        background: var(--brand-2);
+      }
+
+      .btn-warn {
+        background: var(--warn);
+      }
+
+      .btn-danger {
+        background: var(--danger);
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .chips {
+        display: grid;
+        gap: 8px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        font-size: 12px;
+        background: #f6ebdc;
+      }
+
+      .main {
+        padding: 18px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .topbar h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .topbar p {
+        margin: 5px 0 0;
+        font-size: 13px;
+        color: var(--sub);
+      }
+
+      .view-nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .view-nav button {
+        background: #2b5870;
+      }
+
+      .view-nav button.active {
+        background: #0f6b5f;
+      }
+
+      .panel {
+        display: none;
+        animation: rise 0.28s ease-out both;
+      }
+
+      .panel.active {
+        display: block;
+      }
+
+      .cards {
+        display: grid;
+        gap: 12px;
+      }
+
+      .card {
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 17px;
+      }
+
+      .card p.meta {
+        margin: 0 0 10px;
+        font-size: 12px;
+        color: var(--sub);
+      }
+
+      .split {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1.2fr 1fr;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px dashed #d7c9b2;
+        text-align: left;
+        vertical-align: top;
+        padding: 8px 6px;
+      }
+
+      th {
+        font-size: 12px;
+        color: var(--sub);
+        font-weight: 600;
+      }
+
+      td input,
+      td select {
+        margin-top: 0;
+        padding: 6px 8px;
+      }
+
+      .table-wrap {
+        max-height: 300px;
+        overflow: auto;
+        border: 1px solid #d8c9b1;
+        border-radius: 12px;
+        background: #fffdf8;
+      }
+
+      .output {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .status {
+        margin: 0 0 7px;
+        font-weight: 600;
+      }
+
+      .status.ok {
+        color: var(--ok);
+      }
+
+      .status.err {
+        color: var(--danger);
+      }
+
       pre {
         margin: 0;
-        border-radius: 10px;
-        border: 1px solid var(--line);
-        background: #fbf6ed;
         min-height: 220px;
-        padding: 12px;
+        max-height: 430px;
         overflow: auto;
+        border-radius: 12px;
+        border: 1px solid #d7c8b3;
+        background: #faf4e8;
+        padding: 11px;
+        font-size: 12px;
       }
-      .ok { color: #1b7f40; }
-      .bad { color: #a82f27; }
-      .muted { opacity: .75; font-size: 13px; }
+
+      @media (max-width: 1180px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid rgba(214, 197, 170, 0.85);
+        }
+      }
+
+      @media (max-width: 960px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     </style>
   </head>
   <body>
-    <main class="wrap">
-      <h1>MySQL SQL Gateway Demo</h1>
-      <p class="sub">Login, optional request encryption, SQL execute, and admin audit logs.</p>
+    <div class="workspace">
+      <aside class="sidebar">
+        <section class="brand">
+          <h1>EasyDB 控制台</h1>
+          <p>多项目网关 · 平台管理 · 管理员工作台</p>
+        </section>
 
-      <section class="grid">
-        <article class="card">
-          <h3>Auth & Encryption</h3>
-          <label>API Base URL <input id="apiBase" value="http://localhost:3003" /></label>
-          <label>Username <input id="username" value="admin" /></label>
-          <label>Password <input id="password" type="password" value="admin123" /></label>
-          <label>
-            <input id="encryptToggle" type="checkbox" checked style="width:auto;margin-right:6px" />
-            Enable encrypted payload
-          </label>
-          <label>Shared Encryption Password <input id="sharedPassword" type="password" value="replace-with-shared-password" /></label>
-          <div class="row">
-            <button id="btnLogin">Login</button>
-            <button id="btnMe" class="alt">Check /api/auth/me</button>
-            <button id="btnLogout" class="warn">Logout</button>
-            <span id="roleTag" class="pill">role: -</span>
-          </div>
-          <p class="muted">Token preview: <span id="tokenPreview">(none)</span></p>
-        </article>
+        <section class="sidebar-block">
+          <h3>全局执行上下文</h3>
+          <p class="help">执行上下文 = projectKey + env。这里只决定 SQL 落到哪个项目环境，不会影响登录状态。</p>
+          <label class="field">API 地址<input id="apiBase" value="http://localhost:3000" /></label>
+          <label class="field">项目标识<input id="projectKey" value="default" /></label>
+          <label class="field">环境标识<input id="envKey" value="prod" /></label>
+          <label class="field">共享加密密码（前后端请求体加密）<input id="sharedPassword" type="password" value="replace-with-shared-password" /></label>
+          <label class="switch"><input id="encryptToggle" type="checkbox" /> 启用加密请求体</label>
+        </section>
 
-        <article class="card">
-          <h3>SQL Runner</h3>
-          <label>SQL <textarea id="sql">select id,name from users where id > ? limit 20</textarea></label>
-          <label>Params JSON Array <textarea id="params">[100]</textarea></label>
+        <section class="sidebar-block">
+          <h3>网关管理员登录</h3>
+          <p class="help">这里是网关账号（gateway_users），不是 MySQL 的 root 账号。登录一次即可管理全部项目。</p>
+          <label class="field">用户名（网关用户）<input id="username" value="admin" /></label>
+          <label class="field">密码（网关用户密码）<input id="password" type="password" value="admin123" /></label>
           <div class="row">
-            <button id="btnSql">Run SQL</button>
-            <button id="btnSample" class="alt">Load Sample</button>
+            <button id="btnLogin" data-busy>登录</button>
+            <button id="btnMe" class="btn-sub" data-busy>校验</button>
+            <button id="btnLogout" class="btn-danger">退出</button>
           </div>
-        </article>
-      </section>
+          <div class="chips" style="margin-top: 10px">
+            <span class="chip" id="badgeScope">context: default/prod</span>
+            <span class="chip" id="badgeRole">role: -</span>
+            <span class="chip" id="badgeToken">token: (none)</span>
+          </div>
+        </section>
+      </aside>
 
-      <section class="grid" style="margin-top:14px">
-        <article class="card">
-          <h3>Admin Audit Logs</h3>
-          <label>Query String <input id="auditQuery" value="limit=50" /></label>
-          <p class="muted">Example: <code>limit=100&status=ok</code></p>
-          <div class="row">
-            <button id="btnAudit" class="alt">Load /api/admin/audit-logs</button>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h2>平台运行工作区</h2>
+            <p>左侧登录一次并选择执行上下文，右侧按模块完成项目开通、SQL 运维和审计管理。</p>
           </div>
-        </article>
-        <article class="card">
-          <h3>Admin User Management</h3>
-          <label>User Query <input id="userQuery" value="limit=50" /></label>
-          <label>Target Username <input id="targetUsername" value="analyst" /></label>
-          <label>Target Role <input id="targetRole" value="analyst" /></label>
-          <label>Target Status <input id="targetStatus" value="active" /></label>
-          <label>Password/New Password <input id="targetPassword" type="password" value="analyst123" /></label>
-          <div class="row">
-            <button id="btnUserList" class="alt">List Users</button>
-            <button id="btnUserGet" class="alt">Get User</button>
-            <button id="btnUserCreate">Create</button>
-            <button id="btnUserUpdate">Update</button>
-            <button id="btnUserResetPwd" class="warn">Reset Pwd</button>
-            <button id="btnUserDisable" class="warn">Disable</button>
-            <button id="btnUserEnable" class="alt">Enable</button>
-            <button id="btnUserDelete" class="warn">Delete</button>
-          </div>
-        </article>
-      </section>
+          <nav class="view-nav">
+            <button class="active" data-panel-target="panel-platform">平台管理</button>
+            <button data-panel-target="panel-sql">SQL 工作台</button>
+            <button data-panel-target="panel-audit">审计日志</button>
+            <button data-panel-target="panel-users">用户管理</button>
+          </nav>
+        </header>
 
-      <section class="card" style="margin-top:14px">
-        <h3>Response</h3>
-        <p id="status" class="muted">Ready</p>
-        <pre id="output">{}</pre>
-      </section>
-    </main>
+        <section id="panel-platform" class="panel active">
+          <div class="cards">
+            <article class="card">
+              <h3>项目列表（可筛选）</h3>
+              <p class="meta">创建项目时会自动创建默认环境、自动建库并初始化基础表，可一键切换执行上下文。</p>
+              <div class="row">
+                <input id="projectSearch" placeholder="按 projectKey / 名称 / 状态筛选" />
+                <button id="btnRefreshProjects" class="btn-sub" data-busy>刷新项目</button>
+                <button id="btnCreateProject" data-busy>创建项目</button>
+              </div>
+              <div class="row">
+                <input id="newProjectKey" placeholder="projectKey，例如 crm" />
+                <input id="newProjectName" placeholder="项目名称" />
+                <select id="newProjectStatus">
+                  <option value="active">active</option>
+                  <option value="disabled">disabled</option>
+                </select>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ProjectKey</th>
+                      <th>名称</th>
+                      <th>状态</th>
+                      <th>更新时间</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="projectTableBody"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <div class="split">
+              <article class="card">
+                <h3>环境列表（行内编辑状态）</h3>
+                <p class="meta">项目创建后默认会有初始环境，可按需调整状态并切换执行上下文。</p>
+                <div class="row">
+                  <input id="envSearch" placeholder="按 env / host / dbName 筛选" />
+                  <button id="btnRefreshEnvs" class="btn-sub" data-busy>刷新环境</button>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Env</th>
+                        <th>状态</th>
+                        <th>数据库</th>
+                        <th>更新时间</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="envTableBody"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="card">
+                <h3>环境编辑器（高级）</h3>
+                <p class="meta">默认环境已自动生成，本区域仅用于特殊场景下调整连接和策略。</p>
+                <p class="meta" style="color:#a13232">风险提示：保存后会实时影响该项目环境的网关连接与策略。</p>
+                <label class="field">项目标识<input id="configProjectKey" value="default" /></label>
+                <label class="field">环境标识<input id="configEnvKey" value="prod" /></label>
+                <label class="field">环境状态
+                  <select id="configEnvStatus">
+                    <option value="active">active</option>
+                    <option value="disabled">disabled</option>
+                  </select>
+                </label>
+                <label class="field">DB Host<input id="dbHost" value="192.168.1.125" /></label>
+                <div class="row">
+                  <label class="field" style="flex: 1">DB Port<input id="dbPort" value="3306" /></label>
+                  <label class="field" style="flex: 1">DB User<input id="dbUser" value="root" /></label>
+                </div>
+                <label class="field">DB Password（业务库密码，留空则保留现有）<input id="dbPassword" type="password" /></label>
+                <label class="field">DB Name<input id="dbName" value="weibo" /></label>
+                <label class="field">环境加密密码（可选）<input id="envRequestPassword" /></label>
+                <label class="field">allowedSqlTypes<input id="policyTypes" value="select,insert,update,delete" /></label>
+                <label class="field">allowedTables<input id="policyTables" value="users,orders,products" /></label>
+                <label class="field">roleTables（JSON）<textarea id="policyRoleTables">{"admin":"*","analyst":["users","orders"]}</textarea></label>
+                <div class="row">
+                  <label class="switch"><input id="policyRequireLimit" type="checkbox" checked /> SELECT 强制 LIMIT</label>
+                  <label class="field" style="flex: 1">maxSelectLimit<input id="policyMaxLimit" value="500" /></label>
+                </div>
+                <div class="row">
+                  <button id="btnSaveEnvEditor" class="btn-warn" data-busy>保存环境</button>
+                </div>
+              </article>
+            </div>
+
+            <div class="split">
+              <article class="card">
+                <h3>环境变量列表（行内编辑）</h3>
+                <p class="meta">支持按变量名筛选，行内编辑后直接保存。</p>
+                <div class="row">
+                  <input id="varSearch" placeholder="按 key / value 筛选" />
+                  <button id="btnRefreshVars" class="btn-sub" data-busy>刷新变量</button>
+                  <label class="switch"><input id="varIncludeSecret" type="checkbox" /> 显示密文真实值</label>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                        <th>密文</th>
+                        <th>版本</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="varTableBody"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="card">
+                <h3>变量编辑器</h3>
+                <p class="meta" style="color:#a13232">风险提示：密文变量修改后会即时生效，请确认值正确。</p>
+                <label class="field">项目标识<input id="varProjectKey" value="default" /></label>
+                <label class="field">环境标识<input id="varEnvKey" value="prod" /></label>
+                <label class="field">变量名<input id="varKey" value="API_BASE_URL" /></label>
+                <label class="field">变量值<textarea id="varValue">https://example.internal</textarea></label>
+                <label class="switch"><input id="varIsSecret" type="checkbox" /> 以密文方式存储</label>
+                <div class="row">
+                  <button id="btnSaveVarEditor" class="btn-warn" data-busy>保存变量</button>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-sql" class="panel">
+          <article class="card">
+            <h3>SQL 工作台（/api/gw/:projectKey/:env/sql）</h3>
+            <p class="meta">使用当前执行上下文执行 SQL，适合联调策略和权限。</p>
+            <label class="field">SQL<textarea id="sqlText">select id,name from users where id > ? limit 20</textarea></label>
+            <label class="field">参数（JSON 数组）<textarea id="sqlParams">[100]</textarea></label>
+            <div class="row">
+              <button id="btnRunSql" data-busy>执行 SQL</button>
+              <button id="btnLoadSample" class="btn-sub">示例 SQL</button>
+            </div>
+          </article>
+        </section>
+
+        <section id="panel-audit" class="panel">
+          <article class="card">
+            <h3>审计日志查询</h3>
+            <p class="meta">支持常见筛选，适合按 requestId 与操作人回溯。</p>
+            <div class="row">
+              <input id="auditKeyword" placeholder="操作人或 requestId 关键字筛选（前端筛选）" />
+              <input id="auditQuery" value="limit=100" />
+              <button id="btnRefreshAudit" class="btn-sub" data-busy>刷新审计</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>状态</th>
+                    <th>角色/用户</th>
+                    <th>接口</th>
+                    <th>requestId</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section id="panel-users" class="panel">
+          <article class="card">
+            <h3>用户列表（行内编辑 + 搜索）</h3>
+            <p class="meta">支持 keyword 检索、角色状态行内编辑，以及常见运维动作。</p>
+            <p class="meta" style="color:#a13232">风险提示：用户禁用/删除/提权都会立即生效，操作前请二次确认。</p>
+            <div class="row">
+              <input id="userKeyword" placeholder="用户名关键字" />
+              <select id="userRoleFilter">
+                <option value="">全部角色</option>
+                <option value="admin">admin</option>
+                <option value="analyst">analyst</option>
+              </select>
+              <select id="userStatusFilter">
+                <option value="">全部状态</option>
+                <option value="active">active</option>
+                <option value="disabled">disabled</option>
+              </select>
+              <button id="btnRefreshUsers" class="btn-sub" data-busy>刷新用户</button>
+              <button id="btnCreateUser" data-busy>新建用户</button>
+            </div>
+
+            <div class="row">
+              <input id="createUsername" placeholder="新用户名" />
+              <input id="createPassword" type="password" placeholder="新用户密码（>=8位）" />
+              <select id="createRole">
+                <option value="analyst">analyst</option>
+                <option value="admin">admin</option>
+              </select>
+              <select id="createStatus">
+                <option value="active">active</option>
+                <option value="disabled">disabled</option>
+              </select>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>用户名</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th>最近登录</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="userTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="output">
+          <p id="statusText" class="status">就绪：请选择操作</p>
+          <pre id="outputView">{}</pre>
+        </section>
+      </main>
+    </div>
 
     <script src="./app.js"></script>
   </body>
