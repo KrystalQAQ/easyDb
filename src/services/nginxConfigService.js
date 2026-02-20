@@ -189,6 +189,37 @@ async function ensureNginxConfDir() {
   await fs.mkdir(nginx.confDir, { recursive: true });
 }
 
+function upgradeLegacyFrontendRoot(configText, frontendRoot) {
+  const text = String(configText || "");
+  const nextRoot = normalizeFrontendRoot(frontendRoot);
+  const legacyRootLine = "root /usr/share/nginx/html;";
+  const nextRootLine = `root ${nextRoot};`;
+  if (!text.includes(legacyRootLine) || text.includes(nextRootLine)) {
+    return {
+      changed: false,
+      configText: text,
+    };
+  }
+
+  // 仅升级系统生成的项目 conf，避免误改自定义配置
+  const looksGeneratedProjectConf =
+    text.includes("# 业务前端静态资源") &&
+    text.includes("location = /api/auth/me") &&
+    text.includes("location = /api/sql") &&
+    text.includes("location = /api/health");
+  if (!looksGeneratedProjectConf) {
+    return {
+      changed: false,
+      configText: text,
+    };
+  }
+
+  return {
+    changed: true,
+    configText: text.replace(legacyRootLine, nextRootLine),
+  };
+}
+
 function buildFrontendPlaceholderHtml(projectKey, env) {
   return [
     "<!doctype html>",
@@ -317,10 +348,22 @@ async function ensureProjectEnvNginxConfig(projectKey, env, options = {}) {
   }
 
   if (exists && !options.overwrite) {
+    let upgradedLegacyRoot = false;
+    if (options.autoUpgradeLegacyRoot !== false) {
+      const currentText = await fs.readFile(confPath, "utf8");
+      const upgraded = upgradeLegacyFrontendRoot(currentText, defaults.frontendRoot);
+      if (upgraded.changed) {
+        const normalizedText = upgraded.configText.endsWith("\n") ? upgraded.configText : `${upgraded.configText}\n`;
+        await fs.writeFile(confPath, normalizedText, "utf8");
+        upgradedLegacyRoot = true;
+      }
+    }
+
     return {
       created: false,
       path: confPath,
       frontendDir: frontendDir?.path || defaults.frontendDir,
+      upgradedLegacyRoot,
     };
   }
 
