@@ -61,6 +61,30 @@ function normalizeFrontendRoot(value) {
   return text;
 }
 
+function resolveProjectFrontendDir(projectKey, env) {
+  const rendered = renderTemplate(nginx.projectFrontendDirTemplate || "", {
+    projectKey,
+    env,
+  });
+  const target = String(rendered || "").trim();
+  if (!target) {
+    throw new Error("NGINX_PROJECT_FRONTEND_DIR_TEMPLATE is required");
+  }
+  return path.resolve(process.cwd(), target);
+}
+
+function resolveProjectFrontendWebRoot(projectKey, env) {
+  const rendered = renderTemplate(nginx.projectFrontendWebRootTemplate || "", {
+    projectKey,
+    env,
+  });
+  const target = String(rendered || "").trim();
+  if (!target) {
+    return normalizeFrontendRoot(nginx.frontendRoot);
+  }
+  return normalizeFrontendRoot(target);
+}
+
 function resolveConfFileName(projectKey, env) {
   const rendered = renderTemplate(nginx.confFileNameTemplate || "{projectKey}_{env}.conf", {
     projectKey,
@@ -155,13 +179,59 @@ function buildDefaultNginxSettings(projectKey, env) {
     env: normalizedEnv,
     serverName,
     listenPort: normalizeListenPort(nginx.listenPort),
-    frontendRoot: normalizeFrontendRoot(nginx.frontendRoot),
+    frontendRoot: resolveProjectFrontendWebRoot(normalizedProject, normalizedEnv),
+    frontendDir: resolveProjectFrontendDir(normalizedProject, normalizedEnv),
     upstreamOrigin: normalizeUpstreamOrigin(nginx.upstreamOrigin),
   };
 }
 
 async function ensureNginxConfDir() {
   await fs.mkdir(nginx.confDir, { recursive: true });
+}
+
+function buildFrontendPlaceholderHtml(projectKey, env) {
+  return [
+    "<!doctype html>",
+    '<html lang="zh-CN">',
+    "  <head>",
+    '    <meta charset="UTF-8" />',
+    '    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+    `    <title>${projectKey}/${env} 前端待部署</title>`,
+    "  </head>",
+    "  <body>",
+    "    <main style=\"font-family: sans-serif; padding: 24px;\">",
+    `      <h1>项目 ${projectKey} / ${env} 前端待部署</h1>`,
+    "      <p>当前项目已开通网关与数据库，请将业务前端构建产物发布到此目录。</p>",
+    "    </main>",
+    "  </body>",
+    "</html>",
+  ].join("\n");
+}
+
+async function ensureProjectFrontendDir(projectKey, env) {
+  if (!nginx.autoCreateFrontendDir) {
+    return null;
+  }
+
+  const frontendDir = resolveProjectFrontendDir(projectKey, env);
+  await fs.mkdir(frontendDir, { recursive: true });
+
+  const indexPath = path.join(frontendDir, "index.html");
+  let hasIndex = true;
+  try {
+    await fs.access(indexPath);
+  } catch (_err) {
+    hasIndex = false;
+  }
+  if (!hasIndex) {
+    await fs.writeFile(indexPath, buildFrontendPlaceholderHtml(projectKey, env), "utf8");
+  }
+
+  return {
+    path: frontendDir,
+    indexPath,
+    indexCreated: !hasIndex,
+  };
 }
 
 async function getProjectEnvNginxConfig(projectKey, env) {
@@ -191,6 +261,7 @@ async function getProjectEnvNginxConfig(projectKey, env) {
       serverName: defaults.serverName,
       listenPort: defaults.listenPort,
       frontendRoot: defaults.frontendRoot,
+      frontendDir: defaults.frontendDir,
       upstreamOrigin: defaults.upstreamOrigin,
     },
     configText,
@@ -203,6 +274,7 @@ async function upsertProjectEnvNginxConfig(projectKey, env, payload = {}) {
   }
   const defaults = buildDefaultNginxSettings(projectKey, env);
   await ensureNginxConfDir();
+  const frontendDir = await ensureProjectFrontendDir(defaults.projectKey, defaults.env);
 
   const confPath = resolveProjectEnvNginxPath(defaults.projectKey, defaults.env);
   let configText = String(payload.confText || "").trim();
@@ -221,6 +293,7 @@ async function upsertProjectEnvNginxConfig(projectKey, env, payload = {}) {
 
   return {
     path: confPath,
+    frontendDir: frontendDir?.path || defaults.frontendDir,
     configText: normalizedText,
   };
 }
@@ -233,6 +306,7 @@ async function ensureProjectEnvNginxConfig(projectKey, env, options = {}) {
   const defaults = buildDefaultNginxSettings(projectKey, env);
   const confPath = resolveProjectEnvNginxPath(defaults.projectKey, defaults.env);
   await ensureNginxConfDir();
+  const frontendDir = await ensureProjectFrontendDir(defaults.projectKey, defaults.env);
 
   let exists = false;
   try {
@@ -246,6 +320,7 @@ async function ensureProjectEnvNginxConfig(projectKey, env, options = {}) {
     return {
       created: false,
       path: confPath,
+      frontendDir: frontendDir?.path || defaults.frontendDir,
     };
   }
 
@@ -254,6 +329,7 @@ async function ensureProjectEnvNginxConfig(projectKey, env, options = {}) {
   return {
     created: true,
     path: confPath,
+    frontendDir: frontendDir?.path || defaults.frontendDir,
   };
 }
 
@@ -283,6 +359,7 @@ async function reloadNginxConfig() {
 
 module.exports = {
   buildNginxConfigText,
+  ensureProjectFrontendDir,
   getProjectEnvNginxConfig,
   upsertProjectEnvNginxConfig,
   ensureProjectEnvNginxConfig,

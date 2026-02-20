@@ -84,6 +84,12 @@ const platformDefaultInitTables = parseCsv(process.env.PLATFORM_DEFAULT_INIT_TAB
   .map((item) => item.toLowerCase());
 const nginxConfFileNameTemplate = (process.env.NGINX_CONF_FILENAME_TEMPLATE || "{projectKey}_{env}.conf").trim();
 const nginxServerNameTemplate = (process.env.NGINX_SERVER_NAME_TEMPLATE || "{projectKey}.local").trim();
+const nginxProjectFrontendDirTemplate = (
+  process.env.NGINX_PROJECT_FRONTEND_DIR_TEMPLATE || "./runtime/project-web/{projectKey}/{env}/current"
+).trim();
+const nginxProjectFrontendWebRootTemplate = (
+  process.env.NGINX_PROJECT_FRONTEND_WEB_ROOT_TEMPLATE || "/project-web/{projectKey}/{env}/current"
+).trim();
 
 module.exports = {
   port: parseNumber(process.env.PORT, 3000),
@@ -169,11 +175,16 @@ module.exports = {
   nginx: {
     enabled: parseBoolean(process.env.NGINX_CONFIG_ENABLED, true),
     autoGenerateOnProjectCreate: parseBoolean(process.env.NGINX_AUTO_GENERATE_ON_PROJECT_CREATE, true),
+    autoCreateFrontendDir: parseBoolean(process.env.NGINX_AUTO_CREATE_FRONTEND_DIR, true),
     confDir: path.resolve(process.cwd(), process.env.NGINX_CONF_DIR || "./runtime/nginx/conf.d"),
     confFileNameTemplate: nginxConfFileNameTemplate || "{projectKey}_{env}.conf",
     serverNameTemplate: nginxServerNameTemplate || "{projectKey}.local",
     listenPort: parseNumber(process.env.NGINX_LISTEN_PORT, 80),
     frontendRoot: process.env.NGINX_FRONTEND_ROOT || "/usr/share/nginx/html",
+    projectFrontendDirTemplate:
+      nginxProjectFrontendDirTemplate || "./runtime/project-web/{projectKey}/{env}/current",
+    projectFrontendWebRootTemplate:
+      nginxProjectFrontendWebRootTemplate || "/project-web/{projectKey}/{env}/current",
     upstreamOrigin: process.env.NGINX_UPSTREAM_ORIGIN || "http://gateway:3000",
     reloadCommand: process.env.NGINX_RELOAD_COMMAND || "",
   },

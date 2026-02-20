@@ -77,6 +77,7 @@ function ProjectCenterPage() {
   const [nginxReloading, setNginxReloading] = useState(false)
   const [nginxSource, setNginxSource] = useState('generated')
   const [nginxPath, setNginxPath] = useState('')
+  const [nginxFrontendDir, setNginxFrontendDir] = useState('')
   const [nginxConfText, setNginxConfText] = useState('')
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -189,6 +190,7 @@ function ProjectCenterPage() {
       if (!targetProject || !targetEnv) {
         setNginxSource('generated')
         setNginxPath('')
+        setNginxFrontendDir('')
         setNginxConfText('')
         return
       }
@@ -201,6 +203,7 @@ function ProjectCenterPage() {
         const item = payload.item || {}
         setNginxSource(item.source || 'generated')
         setNginxPath(item.path || '')
+        setNginxFrontendDir(item.settings?.frontendDir || '')
         setNginxConfText(item.configText || '')
       } catch (err) {
         message.error(err.message)
@@ -648,7 +651,7 @@ function ProjectCenterPage() {
             showIcon
             type="success"
             message="最近一次开通结果"
-            description={`默认环境 ${createResult.env} 已创建；数据库 ${createResult.db?.database}; 初始化表：${(createResult.initializedTables || []).join(', ') || '无'}; Nginx配置：${createResult.nginxConfPath || '未生成'}`}
+            description={`默认环境 ${createResult.env} 已创建；数据库 ${createResult.db?.database}; 初始化表：${(createResult.initializedTables || []).join(', ') || '无'}; Nginx配置：${createResult.nginxConfPath || '未生成'}; 前端目录：${createResult.frontendDir || '未创建'}`}
           />
         </Card>
       ) : null}
@@ -799,6 +802,7 @@ function ProjectCenterPage() {
               配置来源：{nginxSource === 'file' ? '已落盘' : '默认模板'}
             </Tag>
             {nginxPath ? <Tag>文件：{nginxPath}</Tag> : null}
+            {nginxFrontendDir ? <Tag color="blue">前端目录：{nginxFrontendDir}</Tag> : null}
           </div>
           <Form.Item label="Nginx 配置（可编辑，保存后可一键重载）">
             <Input.TextArea

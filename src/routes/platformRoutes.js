@@ -92,6 +92,7 @@ function createPlatformRoutes() {
                     database: defaultEnv.context.db.database,
                   },
                   nginxConfPath: defaultEnv.nginxConf?.path || null,
+                  frontendDir: defaultEnv.nginxConf?.frontendDir || null,
                 }
               : null,
         });

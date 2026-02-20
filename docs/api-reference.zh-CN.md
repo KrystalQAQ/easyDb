@@ -44,7 +44,8 @@
     "initializedTables": ["users", "orders", "products"],
     "env": "prod",
     "db": { "host": "127.0.0.1", "port": 3306, "user": "root", "database": "crm_prod" },
-    "nginxConfPath": "/app/runtime/nginx/conf.d/crm_prod.conf"
+    "nginxConfPath": "/app/runtime/nginx/conf.d/crm_prod.conf",
+    "frontendDir": "/app/runtime/project-web/crm/prod/current"
   }
 }
 ```
@@ -116,6 +117,7 @@ Nginx 配置响应示例：
       "serverName": "crm.local",
       "listenPort": 80,
       "frontendRoot": "/usr/share/nginx/html",
+      "frontendDir": "/app/runtime/project-web/crm/prod/current",
       "upstreamOrigin": "http://gateway:3000"
     },
     "configText": "server { ... }"

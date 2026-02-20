@@ -104,6 +104,7 @@ cp .env.example .env
 - 是否自动建库（默认开启）：`PLATFORM_AUTO_CREATE_DATABASE`
 - 是否自动初始化基础表：`PLATFORM_AUTO_INIT_TABLES`、`PLATFORM_DEFAULT_INIT_TABLES`
 - Nginx 管理：`NGINX_*`（创建项目自动生成 conf，后台可编辑并触发重载）
+- 项目前端目录：可按模板自动创建（`NGINX_PROJECT_FRONTEND_*`）
 
 ### 3) 初始化表
 
@@ -167,6 +168,7 @@ pnpm frontend:dev
 - 删除项目默认只删除平台配置，不自动删除 MySQL 物理库
 - 环境详情接口会返回 `policy`、`db` 和 `requestEncryptionPasswordEnabled`，便于前端完整展示环境参数
 - 若开启 Nginx 管理，创建项目会同步生成 conf 文件（默认目录 `runtime/nginx/conf.d`）
+- 创建项目时可自动创建该项目的前端发布目录（默认 `runtime/project-web/{projectKey}/{env}/current`）
 
 ### C. 管理员能力（仅 admin）
 
@@ -191,6 +193,7 @@ pnpm frontend:dev
    - 自动建库（`CREATE DATABASE IF NOT EXISTS`）
    - 自动初始化基础表（默认 `users,orders,products`）
    - 自动生成项目对应 Nginx conf（可在后台继续编辑）
+   - 自动创建项目前端占位目录（可直接发布业务前端 dist）
 4. 直接通过 `/api/gw/:projectKey/:env/sql` 开始联调
 
 说明：
@@ -248,6 +251,7 @@ docker compose up -d --build
 - 保存后可点“保存后重载 Nginx”（依赖 `NGINX_RELOAD_COMMAND`）
 - 推荐在 `.env` 设置：`NGINX_RELOAD_COMMAND=docker exec easydb-nginx nginx -s reload`
 - 默认站点会拦截 `/api/sql`（防止误命中 `_` 站点导致落到 `default/prod`）
+- 项目前端建议发布到：`runtime/project-web/{projectKey}/{env}/current`（容器内映射 `/project-web/...`）
 
 ## GitHub Actions（已同步）
 
