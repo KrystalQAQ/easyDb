@@ -16,9 +16,10 @@ import {
   Table,
   Tag,
   Typography,
+  Upload,
   message,
 } from 'antd'
-import { CheckCircleOutlined, CopyOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CopyOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons'
 import { useConsole } from '../context/ConsoleContext'
 
 function formatTime(value) {
@@ -59,7 +60,7 @@ function prettyRoleTables(value) {
 }
 
 function ProjectCenterPage() {
-  const { request, apiBase, projectKey, env, updateGatewayContext } = useConsole()
+  const { request, token, apiBase, projectKey, env, updateGatewayContext } = useConsole()
 
   const [projectLoading, setProjectLoading] = useState(false)
   const [projects, setProjects] = useState([])
@@ -811,6 +812,41 @@ function ProjectCenterPage() {
             保存环境参数
           </Button>
         </Form>
+      </Card>
+
+      <Card>
+        <Typography.Title level={5} className="!mb-1">
+          前端部署
+        </Typography.Title>
+        <Typography.Text type="secondary">
+          上传前端构建产物 .zip 压缩包，自动解压到项目环境目录（覆盖旧文件）。
+        </Typography.Text>
+        <div className="mt-4">
+          <Upload
+            accept=".zip"
+            maxCount={1}
+            showUploadList={false}
+            customRequest={async ({ file, onSuccess, onError }) => {
+              const formData = new FormData()
+              formData.append('file', file)
+              try {
+                const res = await fetch(
+                  `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(env)}/deploy`,
+                  { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData }
+                )
+                const data = await res.json()
+                if (!data.ok) throw new Error(data.error || '部署失败')
+                message.success(`部署成功：${data.targetDir}`)
+                onSuccess(data)
+              } catch (err) {
+                message.error(err.message)
+                onError(err)
+              }
+            }}
+          >
+            <Button icon={<UploadOutlined />}>选择 zip 文件并部署</Button>
+          </Upload>
+        </div>
       </Card>
 
       <Card>

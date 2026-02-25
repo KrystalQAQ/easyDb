@@ -1,4 +1,8 @@
 const express = require("express");
+const multer = require("multer");
+const AdmZip = require("adm-zip");
+const path = require("path");
+const fs = require("fs");
 const { authenticate } = require("../auth");
 const { writeAuditLog } = require("../auditLogger");
 const { invalidateProjectEnv } = require("../projectRegistry");
@@ -20,6 +24,7 @@ const {
   upsertProjectEnvNginxConfig,
   ensureProjectEnvNginxConfig,
   reloadNginxConfig,
+  resolveProjectFrontendDir,
 } = require("../services/nginxConfigService");
 const {
   normalizeProjectKey,
@@ -422,6 +427,89 @@ function createPlatformRoutes() {
       return res.status(400).json({ ok: false, error: err.message });
     }
   });
+
+  // 前端压缩包部署：上传 zip 解压到项目环境前端目录
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype === "application/zip" || file.originalname.endsWith(".zip")) {
+        cb(null, true);
+      } else {
+        cb(new Error("只支持 .zip 格式"));
+      }
+    },
+  });
+
+  router.post(
+    "/projects/:projectKey/envs/:env/deploy",
+    upload.single("file"),
+    async (req, res) => {
+      const projectKey = normalizeProjectKey(req.params.projectKey);
+      const env = normalizeEnvKey(req.params.env);
+      if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
+        return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
+      }
+      if (!req.file) {
+        return res.status(400).json({ ok: false, error: "请上传 .zip 文件" });
+      }
+
+      try {
+        const targetDir = resolveProjectFrontendDir(projectKey, env);
+        if (!targetDir) {
+          return res.status(400).json({ ok: false, error: "未配置前端目录模板，请检查 NGINX_PROJECT_FRONTEND_DIR_TEMPLATE" });
+        }
+
+        // 清空目标目录后解压
+        fs.rmSync(targetDir, { recursive: true, force: true });
+        fs.mkdirSync(targetDir, { recursive: true });
+
+        const zip = new AdmZip(req.file.buffer);
+        const entries = zip.getEntries();
+
+        // 检测是否有单一顶层目录（如 dist/），若有则跳过它直接解压内容
+        const topDirs = new Set(
+          entries
+            .map((e) => e.entryName.split("/")[0])
+            .filter(Boolean)
+        );
+        const singleTopDir =
+          topDirs.size === 1 &&
+          entries.some((e) => e.entryName.startsWith([...topDirs][0] + "/") && !e.isDirectory)
+            ? [...topDirs][0]
+            : null;
+
+        for (const entry of entries) {
+          if (entry.isDirectory) continue;
+          let relPath = entry.entryName;
+          if (singleTopDir && relPath.startsWith(singleTopDir + "/")) {
+            relPath = relPath.slice(singleTopDir.length + 1);
+          }
+          if (!relPath) continue;
+          const outPath = path.join(targetDir, relPath);
+          // 防止路径穿越
+          if (!outPath.startsWith(path.resolve(targetDir))) continue;
+          fs.mkdirSync(path.dirname(outPath), { recursive: true });
+          fs.writeFileSync(outPath, entry.getData());
+        }
+
+        await writeAuditLog({
+          endpoint: "/api/platform/projects/:projectKey/envs/:env/deploy",
+          action: "deploy_frontend",
+          status: "ok",
+          actor: req.user.username,
+          role: req.user.role,
+          targetProject: projectKey,
+          targetEnv: env,
+          ip: req.ip,
+        });
+
+        return res.json({ ok: true, targetDir });
+      } catch (err) {
+        return res.status(500).json({ ok: false, error: err.message });
+      }
+    }
+  );
 
   return router;
 }

@@ -11,8 +11,8 @@ set -e
 # ─── 配置 ────────────────────────────────────────────────
 BASE_DIR=/opt/easydb-platform
 NETWORK=easydb-platform-net
-GATEWAY_IMAGE=ghcr.io/krystalqaq/easydb/gateway:latest
-NGINX_IMAGE=ghcr.io/krystalqaq/easydb/nginx:latest
+GATEWAY_IMAGE=ghcr.nju.edu.cn/ghcr.io/krystalqaq/easydb/gateway:latest
+NGINX_IMAGE=ghcr.nju.edu.cn/ghcr.io/krystalqaq/easydb/nginx:latest
 GATEWAY_PORT=3031
 NGINX_PORT=3080
 # ─────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ check_env() {
 ensure_dirs() {
   mkdir -p "$BASE_DIR/logs"
   mkdir -p "$BASE_DIR/runtime/nginx/conf.d"
+  mkdir -p "$BASE_DIR/runtime/project-web"
   mkdir -p "$BASE_DIR/frontend"
 }
 
@@ -84,6 +85,7 @@ start_nginx() {
     -p "$NGINX_PORT:80" \
     -v "$BASE_DIR/runtime/nginx/conf.d:/etc/nginx/conf.d:ro" \
     -v "$BASE_DIR/frontend:/usr/share/nginx/html:ro" \
+    -v "$BASE_DIR/runtime/project-web:/project-web:ro" \
     "$NGINX_IMAGE"
 }
 

@@ -1,50 +1,52 @@
 ---
 name: frontend-gateway-integration
-description: Integrate frontend apps with this repository's multi-project SQL Gateway. Use when users need login/token flows, project-prefixed routing, SQL execution, platform project/env/variable management UI, admin user management, audit log pages, encrypted payload handling, or CORS/CSP/auth troubleshooting across /api/gw/:projectKey/:env/*, /api/platform/*, /api/admin/*, and legacy /api/* endpoints.
+description: 将前端应用与本仓库的多项目 SQL 网关集成。适用场景：登录/Token 流程、SQL 执行、平台项目/环境/变量管理界面、管理员用户管理、审计日志页面、加密请求处理、CORS/CSP/鉴权问题排查。
 ---
 
-# Frontend Gateway Integration
+# 前端网关集成指南
 
-Implement frontend-to-backend integration for the current multi-project gateway architecture.
+为当前多项目网关架构实现前端与后端的集成对接。
 
-## Quick Workflow
+## 快速工作流
 
-1. Read `references/api-contract.md` before changing frontend request logic.
-2. Read `references/frontend-recipes.md` before writing service-layer code or auth/project state management.
-3. Decide route mode first:
-   - project-prefixed mode: `/api/gw/:projectKey/:env/*` (preferred)
-   - legacy mode: `/api/*` (compatibility only)
-4. Implement or update a centralized HTTP client:
-   - Attach `Authorization: Bearer <token>` when token exists.
-   - Login once via `/api/auth/login`; token is global and reused across projects.
-   - Support plaintext and `encryptedPayload` modes.
-   - Normalize backend errors (`{ ok:false, error, requestId? }`) into user-facing messages.
-5. Implement feature flows in this order:
-   - global auth (`/api/auth/login`, `/api/auth/me`)
-   - project-prefixed SQL (`/api/gw/:projectKey/:env/sql`)
-   - platform project/env/vars (`/api/platform/*`) for admin console
-   - admin audit/users (`/api/admin/*`)
-6. Gate admin UI by `role === "admin"`, and block SQL button when project/env is not selected.
-7. Preserve CSP compatibility:
-   - Prefer external JS/CSS files.
-   - Avoid inline scripts/styles unless nonce/hash is configured.
+1. 修改前端请求逻辑前，先读 `references/api-contract.md`。
+2. 编写服务层代码或鉴权/项目状态管理前，先读 `references/frontend-recipes.md`。
+3. 实现功能时按以下顺序推进：
+   - 全局登录鉴权
+   - SQL 查询执行
+   - 平台项目/环境/变量管理（管理员控制台）
+   - 管理员审计日志与用户管理
+4. 实现统一 HTTP 客户端：
+   - 有 Token 时自动附加 `Authorization: Bearer <token>`。
+   - 通过 `/api/auth/login` 登录一次，Token 全局复用，切换项目/环境无需重新登录。
+   - 支持明文和 `encryptedPayload` 两种请求模式。
+   - 统一处理后端错误格式 `{ ok: false, error, requestId? }`，转为用户可读提示。
+5. 管理员界面按 `role === "admin"` 控制可见性，未选择项目/环境时禁用 SQL 按钮。
+6. 保持 CSP 兼容：优先使用外部 JS/CSS 文件，避免内联脚本/样式。
 
-## Integration Rules
+## 集成规范
 
-- Keep request format consistent:
-  - Plaintext body: `{...}`
-  - Encrypted body: `{ encryptedPayload: { v, iv, data, tag } }`
-- Token does not need to be reset when switching project/env.
-- Use JSON array for SQL params; reject non-array locally before request.
-- Persist auth state in one place and provide a single logout path.
-- Show backend `requestId` in error UI when available.
-- For admin user mutations, protect destructive actions with a confirm dialog.
+- 请求格式保持一致：
+  - 明文：`{ sql, params }`
+  - 加密：`{ encryptedPayload: { v, iv, data, tag } }`
+- 切换项目/环境时不需要重置 Token。
+- SQL 参数使用 JSON 数组，在发请求前本地校验非数组情况。
+- 鉴权状态集中管理，提供统一的退出登录路径。
+- 错误提示中展示后端返回的 `requestId`。
+- 管理员破坏性操作（删除用户、禁用账号等）需弹出确认对话框。
 
-## Delivery Checklist
+## 公开访问模式
 
-- Update or add API client module.
-- Update UI forms/pages for auth, SQL, platform config, audit, and user management as needed.
-- Verify role-based button visibility (admin-only operations hidden for non-admin).
-- Verify project/env switching flow does not invalidate token.
-- Verify encrypted mode toggle and shared password input behavior.
-- Verify CSP-safe script loading (no inline JS in strict CSP pages).
+部分环境可开启公开访问（无需登录），此时：
+- SQL 接口不需要携带 Token。
+- 后端强制只允许 SELECT，写操作会被拒绝。
+- 前端可直接发起 SQL 请求，无需走登录流程。
+
+## 交付检查清单
+
+- 新增或更新 API 客户端模块。
+- 按需更新鉴权、SQL、平台配置、审计、用户管理相关页面/表单。
+- 验证角色可见性（非管理员隐藏管理员操作）。
+- 验证切换项目/环境后 Token 不失效。
+- 验证加密模式切换和共享密码输入行为正确。
+- 验证 CSP 安全（严格 CSP 页面无内联 JS）。

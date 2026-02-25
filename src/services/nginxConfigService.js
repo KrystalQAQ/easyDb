@@ -402,6 +402,7 @@ async function reloadNginxConfig() {
 
 module.exports = {
   buildNginxConfigText,
+  resolveProjectFrontendDir,
   ensureProjectFrontendDir,
   getProjectEnvNginxConfig,
   upsertProjectEnvNginxConfig,

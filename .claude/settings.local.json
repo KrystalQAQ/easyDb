@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__mcpServers-1__list-servers",
+      "mcp__mcpServers-1__execute-command",
+      "Bash(tail:*)"
+    ]
+  }
+}
