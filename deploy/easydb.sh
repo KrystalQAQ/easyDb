@@ -72,6 +72,7 @@ start_gateway() {
     -p "$GATEWAY_PORT:3000" \
     -v "$BASE_DIR/logs:/app/logs" \
     -v "$BASE_DIR/runtime/nginx/conf.d:/app/runtime/nginx/conf.d" \
+    -v "$BASE_DIR/runtime/project-web:/app/runtime/project-web" \
     -v /var/run/docker.sock:/var/run/docker.sock \
     "$GATEWAY_IMAGE"
 }
