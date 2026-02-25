@@ -160,13 +160,7 @@ function UserCenterPage() {
         />
       </Card>
 
-      <Alert
-        showIcon
-        type="warning"
-        message="默认管理员策略"
-        description="可以保留默认 admin 用于首次引导，但生产环境必须修改默认口令，并至少保留 2 个管理员以防误锁。"
-      />
-
+ 
       <Modal
         title="创建网关用户"
         open={createOpen}

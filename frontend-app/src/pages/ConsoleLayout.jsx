@@ -119,10 +119,10 @@ function ConsoleLayout() {
             </div>
 
             <Space wrap>
-              <Button onClick={onVerify} loading={verifyLoading}>
+              {/* <Button onClick={onVerify} loading={verifyLoading}>
                 校验登录
-              </Button>
-              <Button onClick={openSettings}>API 设置</Button>
+              </Button> */}
+              {/* <Button onClick={openSettings}>API 设置</Button> */}
               <Button danger icon={<LogoutOutlined />} onClick={logout}>
                 退出
               </Button>
@@ -131,13 +131,7 @@ function ConsoleLayout() {
         </Header>
 
         <Content className="flex flex-1 min-h-0 flex-col p-6">
-          <Alert
-            showIcon
-            type="info"
-            className="!mb-4"
-            message="流程提醒"
-            description="先在“项目开通”中用下拉框选择项目/环境。系统会自动创建默认环境、自动建库和初始化业务表。"
-          />
+
           <div className="flex-1 min-h-0 overflow-auto">
             <Outlet />
           </div>

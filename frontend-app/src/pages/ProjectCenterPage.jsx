@@ -934,13 +934,7 @@ function ProjectCenterPage() {
         <Table rowKey="key" loading={varsLoading} columns={varColumns} dataSource={vars} pagination={{ pageSize: 6 }} />
       </Card>
 
-      <Alert
-        showIcon
-        type="warning"
-        message="业务表与平台用户是两套体系"
-        description="自动初始化的 users/orders/products 是业务库示例表，不是平台 gateway_users。平台登录账号在 easydb_platform.gateway_users。"
-      />
-
+ 
       <Modal
         title="创建项目"
         open={createOpen}

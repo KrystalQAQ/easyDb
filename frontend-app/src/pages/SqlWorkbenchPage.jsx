@@ -92,12 +92,6 @@ function SqlWorkbenchPage() {
         </Form>
       </Card>
 
-      <Alert
-        type="info"
-        showIcon
-        message="权限说明"
-        description="当前后端策略为管理员可执行 SQL。若提示 admin only，请检查是否使用管理员账号登录。"
-      />
 
       <Card>
         <Typography.Title level={5}>执行结果</Typography.Title>
