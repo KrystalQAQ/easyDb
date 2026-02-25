@@ -10,7 +10,8 @@
     "frontend:build": "pnpm --dir frontend-app build",
     "hash:password": "node scripts/hash-password.js",
     "auth:init": "node scripts/init-auth-db.js",
-    "platform:init": "node scripts/init-platform-db.js"
+    "platform:init": "node scripts/init-platform-db.js",
+    "gen:jwt-secret": "node scripts/generate-jwt-secret.js"
   },
   "keywords": [
     "mysql",
