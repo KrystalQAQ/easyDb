@@ -170,6 +170,8 @@ module.exports = {
       projects: process.env.PLATFORM_PROJECT_TABLE || "gateway_projects",
       projectEnvs: process.env.PLATFORM_PROJECT_ENV_TABLE || "gateway_project_envs",
       envVars: process.env.PLATFORM_ENV_VAR_TABLE || "gateway_project_env_vars",
+      apiGroups: process.env.PLATFORM_API_GROUP_TABLE || "gateway_api_groups",
+      apis: process.env.PLATFORM_API_TABLE || "gateway_apis",
     },
   },
   nginx: {

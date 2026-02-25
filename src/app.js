@@ -15,6 +15,8 @@ const { createLegacyRoutes } = require("./routes/legacyRoutes");
 const { createAdminRoutes } = require("./routes/adminRoutes");
 const { createPlatformRoutes } = require("./routes/platformRoutes");
 const { createGatewayRoutes } = require("./routes/gatewayRoutes");
+const { createGatewayApiRoutes } = require("./routes/gatewayApiRoutes");
+const { createPlatformApiRoutes } = require("./routes/platformApiRoutes");
 const { mountFrontendApp } = require("./http/mountFrontendApp");
 
 function createApp() {
@@ -68,7 +70,9 @@ function createApp() {
   app.use("/api", createLegacyRoutes({ sqlRateLimiter }));
   app.use("/api/admin", createAdminRoutes());
   app.use("/api/platform", createPlatformRoutes());
+  app.use("/api/platform", createPlatformApiRoutes());
   app.use("/api/gw", createGatewayRoutes({ sqlRateLimiter }));
+  app.use("/api/gw", createGatewayApiRoutes({ sqlRateLimiter }));
 
   // 前端 history fallback 必须最后挂载，避免误吞 API 请求。
   mountFrontendApp(app, frontend);

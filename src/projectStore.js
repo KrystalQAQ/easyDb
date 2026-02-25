@@ -42,6 +42,7 @@ function parsePolicyJson(raw) {
 function buildProjectEnvContext(row) {
   if (!row) return null;
   return {
+    envId: row.env_id,
     projectKey: row.project_key,
     projectName: row.project_name,
     projectStatus: row.project_status,
@@ -98,6 +99,56 @@ async function ensurePlatformTables() {
       table.timestamp("updated_at").notNullable().defaultTo(dbClient.fn.now());
       table.unique(["project_id", "env_key"]);
       table.index(["project_id"], "idx_project_env_project_id");
+    });
+  }
+
+  const apiGroupsTable = platform.tables.apiGroups;
+  const apisTable = platform.tables.apis;
+
+  const apiGroupsExists = await dbClient.schema.hasTable(apiGroupsTable);
+  if (!apiGroupsExists) {
+    await dbClient.schema.createTable(apiGroupsTable, (table) => {
+      table.bigIncrements("id").primary();
+      table.bigInteger("project_env_id").notNullable();
+      table.string("group_key", 64).notNullable();
+      table.string("name", 128).notNullable();
+      table.string("base_path", 128).defaultTo("");
+      table.text("description").nullable();
+      table.integer("sort_order").defaultTo(0);
+      table.enu("status", ["active", "disabled"]).notNullable().defaultTo("active");
+      table.timestamp("created_at").notNullable().defaultTo(dbClient.fn.now());
+      table.timestamp("updated_at").notNullable().defaultTo(dbClient.fn.now());
+      table.unique(["project_env_id", "group_key"]);
+      table.index(["project_env_id"], "idx_api_group_project_env_id");
+    });
+  }
+
+  const apisExists = await dbClient.schema.hasTable(apisTable);
+  if (!apisExists) {
+    await dbClient.schema.createTable(apisTable, (table) => {
+      table.bigIncrements("id").primary();
+      table.bigInteger("project_env_id").notNullable();
+      table.bigInteger("group_id").nullable();
+      table.string("api_key", 128).notNullable();
+      table.string("name", 128).notNullable();
+      table.text("description").nullable();
+      table.enu("method", ["GET", "POST", "PUT", "DELETE"]).notNullable().defaultTo("POST");
+      table.string("path", 256).defaultTo("");
+      table.text("sql_template").notNullable();
+      table.enu("sql_type", ["select", "insert", "update", "delete"]).notNullable();
+      table.json("params_schema").nullable();
+      table.json("result_mapping").nullable();
+      table.integer("cache_ttl").defaultTo(0);
+      table.enu("auth_mode", ["token", "public"]).notNullable().defaultTo("token");
+      table.integer("sort_order").defaultTo(0);
+      table.enu("status", ["active", "disabled"]).notNullable().defaultTo("active");
+      table.integer("version").notNullable().defaultTo(1);
+      table.string("created_by", 64).nullable();
+      table.string("updated_by", 64).nullable();
+      table.timestamp("created_at").notNullable().defaultTo(dbClient.fn.now());
+      table.timestamp("updated_at").notNullable().defaultTo(dbClient.fn.now());
+      table.unique(["project_env_id", "api_key"]);
+      table.index(["project_env_id", "group_id"], "idx_api_project_env_group");
     });
   }
 
@@ -174,6 +225,8 @@ async function deleteProject(projectKey) {
   const envIds = envRows.map((row) => row.id);
 
   if (envIds.length > 0) {
+    await dbClient(platform.tables.apis).whereIn("project_env_id", envIds).del();
+    await dbClient(platform.tables.apiGroups).whereIn("project_env_id", envIds).del();
     await dbClient(platform.tables.envVars).whereIn("project_env_id", envIds).del();
   }
   await dbClient(platform.tables.projectEnvs).where({ project_id: project.id }).del();
@@ -409,6 +462,7 @@ module.exports = {
   createProject,
   deleteProject,
   listProjectEnvs,
+  findProjectEnvRecord,
   getProjectEnvContext,
   upsertProjectEnv,
   listProjectEnvVars,

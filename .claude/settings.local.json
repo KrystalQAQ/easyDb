@@ -3,7 +3,10 @@
     "allow": [
       "mcp__mcpServers-1__list-servers",
       "mcp__mcpServers-1__execute-command",
-      "Bash(tail:*)"
+      "Bash(tail:*)",
+      "mcp__db__get_schema",
+      "Bash(cd:*)",
+      "mcp__db__clear_cache"
     ]
   }
 }

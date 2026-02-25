@@ -42,6 +42,22 @@ function isValidVarKey(varKey) {
   return /^[A-Z][A-Z0-9_]{0,127}$/.test(varKey);
 }
 
+function normalizeApiKey(value) {
+  return String(value || "").trim();
+}
+
+function isValidApiKey(apiKey) {
+  return /^[a-zA-Z][a-zA-Z0-9_-]{1,127}$/.test(apiKey);
+}
+
+function normalizeGroupKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isValidGroupKey(groupKey) {
+  return /^[a-z][a-z0-9_-]{1,63}$/.test(groupKey);
+}
+
 module.exports = {
   normalizeUsername,
   normalizeRole,
@@ -49,9 +65,13 @@ module.exports = {
   normalizeProjectKey,
   normalizeEnvKey,
   normalizeVarKey,
+  normalizeApiKey,
+  normalizeGroupKey,
   isValidUsername,
   isValidRole,
   isValidProjectKey,
   isValidEnvKey,
   isValidVarKey,
+  isValidApiKey,
+  isValidGroupKey,
 };
