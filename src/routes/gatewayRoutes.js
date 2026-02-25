@@ -45,15 +45,35 @@ function createGatewayRoutes({ sqlRateLimiter }) {
     });
   });
 
+  // 公开访问模式：policy.publicAccess=true 时跳过登录，但强制只允许 SELECT。
+  function conditionalAuth(req, res, next) {
+    if (req.gatewayContext?.policy?.publicAccess) {
+      req.user = { username: "public", role: "public" };
+      return next();
+    }
+    return authenticate(req, res, next);
+  }
+
+  function conditionalRequireAdmin(req, res, next) {
+    if (req.gatewayContext?.policy?.publicAccess) {
+      return next();
+    }
+    return requireAdmin(req, res, next);
+  }
+
   router.post(
     "/:projectKey/:env/sql",
     gatewayContext,
-    authenticate,
-    requireAdmin,
+    conditionalAuth,
+    conditionalRequireAdmin,
     sqlRateLimiter,
     async (req, res) => {
       // 每个项目环境独立策略，避免跨项目共享默认权限。
-      const policy = buildEffectivePolicy(req.gatewayContext.policy || {});
+      let policy = buildEffectivePolicy(req.gatewayContext.policy || {});
+      // 公开访问模式强制只允许 SELECT，防止写操作。
+      if (req.gatewayContext.policy?.publicAccess) {
+        policy = { ...policy, allowedSqlTypes: ["select"] };
+      }
       const db = getTenantDbClient(req.gatewayContext);
       return executeSqlRequest(req, res, {
         endpoint: "/api/gw/:projectKey/:env/sql",

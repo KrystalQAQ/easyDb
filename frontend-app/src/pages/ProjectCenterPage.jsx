@@ -161,6 +161,7 @@ function ProjectCenterPage() {
           requireSelectLimit:
             item.policy?.requireSelectLimit === undefined ? true : Boolean(item.policy?.requireSelectLimit),
           maxSelectLimit: Number(item.policy?.maxSelectLimit || 500),
+          publicAccess: Boolean(item.policy?.publicAccess),
         })
       } catch (err) {
         setEnvMeta(null)
@@ -404,6 +405,7 @@ function ProjectCenterPage() {
         roleTables: parseRoleTablesJson(values.roleTablesJson),
         requireSelectLimit: Boolean(values.requireSelectLimit),
         maxSelectLimit: Number(values.maxSelectLimit || 500),
+        publicAccess: Boolean(values.publicAccess),
       }
 
       setEnvSaving(true)
@@ -795,6 +797,9 @@ function ProjectCenterPage() {
             </Form.Item>
             <Form.Item name="requireSelectLimit" valuePropName="checked" initialValue>
               <Checkbox>SELECT 必须带 LIMIT</Checkbox>
+            </Form.Item>
+            <Form.Item name="publicAccess" valuePropName="checked" initialValue={false}>
+              <Checkbox>公开访问（无需登录，仅允许 SELECT）</Checkbox>
             </Form.Item>
           </div>
 

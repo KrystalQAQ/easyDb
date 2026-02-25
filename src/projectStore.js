@@ -24,6 +24,7 @@ function normalizePolicy(policy = {}) {
       policy.maxSelectLimit !== undefined && Number.isFinite(Number(policy.maxSelectLimit))
         ? Number(policy.maxSelectLimit)
         : undefined,
+    publicAccess: policy.publicAccess !== undefined ? Boolean(policy.publicAccess) : false,
   };
 }
 

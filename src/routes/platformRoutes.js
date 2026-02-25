@@ -180,6 +180,7 @@ function createPlatformRoutes() {
             database: item.db.database,
           },
           policy: item.policy || {},
+          publicAccess: Boolean(item.policy?.publicAccess),
           requestEncryptionPasswordEnabled: Boolean(item.requestEncryptionPassword),
         },
       });
