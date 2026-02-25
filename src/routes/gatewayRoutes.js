@@ -31,7 +31,7 @@ function createGatewayRoutes({ sqlRateLimiter }) {
   router.post("/:projectKey/:env/auth/login", gatewayContext, (_req, res) => {
     return res.status(410).json({
       ok: false,
-      error: "scoped login removed, please use /api/auth/login",
+      error: "该接口已废弃，请使用 /api/auth/login",
     });
   });
   router.get("/:projectKey/:env/auth/me", gatewayContext, authenticate, (req, res) => {

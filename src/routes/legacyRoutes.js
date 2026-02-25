@@ -36,7 +36,7 @@ function createLegacyRoutes({ sqlRateLimiter }) {
         });
       }
       if (defaultContext.projectStatus !== "active" || defaultContext.status !== "active") {
-        return res.status(403).json({ ok: false, error: "default project env is disabled" });
+        return res.status(403).json({ ok: false, error: "默认项目环境已禁用" });
       }
 
       const policy = buildEffectivePolicy(defaultContext.policy || {});

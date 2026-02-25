@@ -9,14 +9,16 @@ import {
   Input,
   InputNumber,
   Modal,
+  Radio,
   Select,
   Space,
+  Steps,
   Table,
   Tag,
   Typography,
   message,
 } from 'antd'
-import { CopyOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CopyOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons'
 import { useConsole } from '../context/ConsoleContext'
 
 function formatTime(value) {
@@ -83,6 +85,11 @@ function ProjectCenterPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createResult, setCreateResult] = useState(null)
+  const [wizardStep, setWizardStep] = useState(0)
+  const [dbMode, setDbMode] = useState('auto')
+  const [testingConn, setTestingConn] = useState(false)
+  const [connTestResult, setConnTestResult] = useState(null) // null | { ok, error, latencyMs }
+  const [dbForm] = Form.useForm()
 
   const [createForm] = Form.useForm()
   const [envForm] = Form.useForm()
@@ -249,9 +256,64 @@ function ProjectCenterPage() {
     void loadVars(projectKey, env)
   }, [includeSecret, loadVars, projectKey, env])
 
+  const onWizardClose = () => {
+    setCreateOpen(false)
+    setWizardStep(0)
+    setDbMode('auto')
+    setConnTestResult(null)
+    createForm.resetFields()
+  }
+
+  const onTestConnection = async () => {
+    const db = dbForm.getFieldsValue()
+    if (!db?.host || !db?.user || !db?.database) {
+      message.error('请填写 Host、User、Database 后再测试')
+      return
+    }
+    setTestingConn(true)
+    setConnTestResult(null)
+    try {
+      const result = await request('/api/platform/test-db-connection', {
+        method: 'POST',
+        body: {
+          host: db.host,
+          port: Number(db.port || 3306),
+          user: db.user,
+          password: db.password || '',
+          database: db.database,
+        },
+      })
+      setConnTestResult(result)
+    } catch (err) {
+      setConnTestResult({ ok: false, error: err.message })
+    } finally {
+      setTestingConn(false)
+    }
+  }
+
   const onCreateProject = async () => {
     try {
-      const values = await createForm.validateFields()
+      const values = createForm.getFieldsValue()
+      if (!values.projectKey) {
+        message.error('项目标识不能为空')
+        return
+      }
+      let manualDb = null
+      if (dbMode === 'manual') {
+        const db = dbForm.getFieldsValue()
+        if (!connTestResult?.ok) {
+          message.error('请先测试数据库连接并确保连接成功')
+          return
+        }
+        manualDb = {
+          host: db.host,
+          port: Number(db.port || 3306),
+          user: db.user,
+          password: db.password || '',
+          database: db.database,
+        }
+      }
+
       setCreating(true)
       const payload = await request('/api/platform/projects', {
         method: 'POST',
@@ -259,6 +321,8 @@ function ProjectCenterPage() {
           projectKey: values.projectKey.trim().toLowerCase(),
           name: values.name?.trim() || values.projectKey.trim().toLowerCase(),
           status: values.status,
+          dbMode,
+          ...(manualDb ? { db: manualDb } : {}),
         },
       })
 
@@ -266,8 +330,7 @@ function ProjectCenterPage() {
       const nextProject = payload.item?.projectKey || values.projectKey.trim().toLowerCase()
       const nextEnv = payload.defaultEnv?.env || 'prod'
       updateGatewayContext({ projectKey: nextProject, env: nextEnv })
-      setCreateOpen(false)
-      createForm.resetFields()
+      onWizardClose()
 
       await loadProjects()
       await loadEnvs(nextProject)
@@ -275,7 +338,7 @@ function ProjectCenterPage() {
       await loadVars(nextProject, nextEnv)
       await loadNginx(nextProject, nextEnv)
 
-      message.success('项目已开通，默认环境和基础表已初始化。')
+      message.success('项目已开通。')
     } catch (err) {
       if (err?.errorFields) return
       message.error(err.message)
@@ -651,7 +714,7 @@ function ProjectCenterPage() {
             showIcon
             type="success"
             message="最近一次开通结果"
-            description={`默认环境 ${createResult.env} 已创建；数据库 ${createResult.db?.database}; 初始化表：${(createResult.initializedTables || []).join(', ') || '无'}; Nginx配置：${createResult.nginxConfPath || '未生成'}; 前端目录：${createResult.frontendDir || '未创建'}`}
+            description={`默认环境 ${createResult.env} 已创建；数据库 ${createResult.db?.database}; Nginx配置：${createResult.nginxConfPath || '未生成'}; 前端目录：${createResult.frontendDir || '未创建'}`}
           />
         </Card>
       ) : null}
@@ -879,42 +942,143 @@ function ProjectCenterPage() {
       />
 
       <Modal
-        title="创建项目并自动开通"
+        title="创建项目"
         open={createOpen}
-        confirmLoading={creating}
-        okText="立即开通"
-        cancelText="取消"
-        onCancel={() => setCreateOpen(false)}
-        onOk={onCreateProject}
+        onCancel={onWizardClose}
+        footer={
+          <Space>
+            <Button onClick={onWizardClose}>取消</Button>
+            {wizardStep === 1 && (
+              <Button onClick={() => setWizardStep(0)}>上一步</Button>
+            )}
+            {wizardStep === 0 && (
+              <Button
+                type="primary"
+                onClick={async () => {
+                  try {
+                    await createForm.validateFields(['projectKey', 'name', 'status'])
+                    setWizardStep(1)
+                  } catch {
+                    // validation failed, stay on step 0
+                  }
+                }}
+              >
+                下一步
+              </Button>
+            )}
+            {wizardStep === 1 && (
+              <Button
+                type="primary"
+                loading={creating}
+                disabled={dbMode === 'manual' && !connTestResult?.ok}
+                onClick={onCreateProject}
+              >
+                立即开通
+              </Button>
+            )}
+          </Space>
+        }
+        width={560}
       >
-        <Form form={createForm} layout="vertical" initialValues={{ status: 'active' }}>
-          <Form.Item
-            name="projectKey"
-            label="项目标识"
-            rules={[
-              { required: true, message: '请输入项目标识' },
-              { pattern: /^[a-z][a-z0-9_-]{1,31}$/, message: '仅支持小写字母、数字、_、-' },
-            ]}
-          >
-            <Input placeholder="例如 crm" />
-          </Form.Item>
-          <Form.Item name="name" label="项目名称">
-            <Input placeholder="例如 CRM 系统" />
-          </Form.Item>
-          <Form.Item name="status" label="状态">
-            <Select
-              options={[
-                { label: 'active', value: 'active' },
-                { label: 'disabled', value: 'disabled' },
+        <Steps
+          current={wizardStep}
+          size="small"
+          className="mb-5 mt-2"
+          items={[{ title: '项目信息' }, { title: '数据库配置' }]}
+        />
+
+        <div style={{ display: wizardStep === 0 ? undefined : 'none' }}>
+          <Form form={createForm} layout="vertical" initialValues={{ status: 'active' }}>
+            <Form.Item
+              name="projectKey"
+              label="项目标识"
+              rules={[
+                { required: true, message: '请输入项目标识' },
+                { pattern: /^[a-z][a-z0-9_-]{1,31}$/, message: '仅支持小写字母、数字、_、-' },
               ]}
-            />
-          </Form.Item>
-          <Descriptions size="small" column={1} bordered>
-            <Descriptions.Item label="默认环境">prod</Descriptions.Item>
-            <Descriptions.Item label="自动建库">CREATE DATABASE IF NOT EXISTS</Descriptions.Item>
-            <Descriptions.Item label="初始化表">users, orders, products（可通过环境变量改）</Descriptions.Item>
-          </Descriptions>
-        </Form>
+            >
+              <Input placeholder="例如 crm" />
+            </Form.Item>
+            <Form.Item name="name" label="项目名称">
+              <Input placeholder="例如 CRM 系统" />
+            </Form.Item>
+            <Form.Item name="status" label="状态">
+              <Select
+                options={[
+                  { label: 'active', value: 'active' },
+                  { label: 'disabled', value: 'disabled' },
+                ]}
+              />
+            </Form.Item>
+          </Form>
+        </div>
+
+        <div style={{ display: wizardStep === 1 ? undefined : 'none' }}>
+          <Radio.Group
+            value={dbMode}
+            onChange={(e) => {
+              setDbMode(e.target.value)
+              setConnTestResult(null)
+            }}
+            className="mb-4"
+          >
+            <Radio value="auto">自动创建（使用平台默认配置）</Radio>
+            <Radio value="manual">手动填写数据库连接</Radio>
+          </Radio.Group>
+
+          {dbMode === 'auto' && (
+            <Descriptions size="small" column={1} bordered>
+              <Descriptions.Item label="默认环境">prod</Descriptions.Item>
+              <Descriptions.Item label="建库方式">CREATE DATABASE IF NOT EXISTS</Descriptions.Item>
+            </Descriptions>
+          )}
+
+          {dbMode === 'manual' && (
+            <Form form={dbForm} layout="vertical" initialValues={{ port: 3306 }}>
+              <div className="grid grid-cols-2 gap-x-3">
+                <Form.Item name="host" label="Host" rules={[{ required: true, message: '请输入 Host' }]}>
+                  <Input placeholder="127.0.0.1" onChange={() => setConnTestResult(null)} />
+                </Form.Item>
+                <Form.Item name="port" label="Port">
+                  <InputNumber min={1} max={65535} style={{ width: '100%' }} onChange={() => setConnTestResult(null)} />
+                </Form.Item>
+                <Form.Item name="user" label="User" rules={[{ required: true, message: '请输入 User' }]}>
+                  <Input onChange={() => setConnTestResult(null)} />
+                </Form.Item>
+                <Form.Item name="database" label="Database" rules={[{ required: true, message: '请输入数据库名' }]}>
+                  <Input onChange={() => setConnTestResult(null)} />
+                </Form.Item>
+              </div>
+              <Form.Item name="password" label="Password">
+                <Input.Password onChange={() => setConnTestResult(null)} />
+              </Form.Item>
+
+              <div className="flex items-center gap-3">
+                <Button loading={testingConn} onClick={onTestConnection}>
+                  测试连接
+                </Button>
+                {connTestResult?.ok && (
+                  <span className="flex items-center gap-1 text-green-600">
+                    <CheckCircleOutlined />
+                    连接成功（{connTestResult.latencyMs}ms）
+                  </span>
+                )}
+                {connTestResult && !connTestResult.ok && (
+                  <span className="text-red-500">连接失败：{connTestResult.error}</span>
+                )}
+              </div>
+
+              {!connTestResult?.ok && (
+                <Alert
+                  className="mt-3"
+                  type="warning"
+                  showIcon
+                  message="请先测试连接成功后才能创建项目"
+                />
+              )}
+            </Form>
+          )}
+        </div>
       </Modal>
     </Space>
   )

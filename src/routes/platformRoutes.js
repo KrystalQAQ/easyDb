@@ -14,7 +14,7 @@ const {
 } = require("../projectStore");
 const { requireAdmin, parseAdminPayload } = require("../http/adminCommon");
 const { normalizePolicyInput } = require("../utils/gatewayPolicy");
-const { provisionDefaultEnvForProject } = require("../services/projectProvisionService");
+const { provisionDefaultEnvForProject, testDbConnection } = require("../services/projectProvisionService");
 const {
   getProjectEnvNginxConfig,
   upsertProjectEnvNginxConfig,
@@ -36,6 +36,22 @@ function createPlatformRoutes() {
   // 平台控制面接口统一要求 admin 权限。
   router.use(authenticate, requireAdmin);
 
+  // 测试数据库连接，不持久化任何数据
+  router.post("/test-db-connection", async (req, res) => {
+    const payload = parseAdminPayload(req, res);
+    if (!payload) return;
+    const { host, port, user, password, database } = payload;
+    if (!host || !user) {
+      return res.status(400).json({ ok: false, error: "host 和 user 不能为空" });
+    }
+    try {
+      const result = await testDbConnection({ host, port, user, password, database });
+      return res.json(result);
+    } catch (err) {
+      return res.json({ ok: false, error: err.message });
+    }
+  });
+
   router.get("/projects", async (_req, res) => {
     try {
       const items = await listProjects();
@@ -53,16 +69,35 @@ function createPlatformRoutes() {
     const name = String(payload.name || projectKey);
     const status = normalizeStatus(payload.status || "active");
     if (!isValidProjectKey(projectKey)) {
-      return res.status(400).json({ ok: false, error: "invalid projectKey format" });
+      return res.status(400).json({ ok: false, error: "项目标识格式不正确" });
     }
     if (!["active", "disabled"].includes(status)) {
-      return res.status(400).json({ ok: false, error: "status must be active or disabled" });
+      return res.status(400).json({ ok: false, error: "状态只能是 active 或 disabled" });
+    }
+
+    const dbMode = String(payload.dbMode || "auto");
+    if (!["auto", "manual"].includes(dbMode)) {
+      return res.status(400).json({ ok: false, error: "dbMode 只能是 auto 或 manual" });
+    }
+    let manualDb = null;
+    if (dbMode === "manual") {
+      const db = payload.db || {};
+      if (!db.host || !db.user || !db.database) {
+        return res.status(400).json({ ok: false, error: "手动模式需要填写 db.host、db.user、db.database" });
+      }
+      manualDb = {
+        host: String(db.host).trim(),
+        port: Number(db.port || 3306),
+        user: String(db.user).trim(),
+        password: String(db.password || ""),
+        database: String(db.database).trim(),
+      };
     }
 
     try {
       const item = await createProject({ projectKey, name, status });
       try {
-        const defaultEnv = await provisionDefaultEnvForProject(projectKey);
+        const defaultEnv = await provisionDefaultEnvForProject(projectKey, manualDb ? { manualDb } : {});
         if (defaultEnv?.context) {
           invalidateProjectEnv(defaultEnv.context.projectKey, defaultEnv.context.env);
         }
@@ -83,7 +118,6 @@ function createPlatformRoutes() {
               ? {
                   created: defaultEnv.created,
                   databaseCreated: defaultEnv.databaseCreated,
-                  initializedTables: defaultEnv.initializedTables || [],
                   env: defaultEnv.context.env,
                   db: {
                     host: defaultEnv.context.db.host,
@@ -98,11 +132,11 @@ function createPlatformRoutes() {
         });
       } catch (provisionErr) {
         await deleteProject(projectKey).catch(() => undefined);
-        return res.status(400).json({ ok: false, error: `project provision failed: ${provisionErr.message}` });
+        return res.status(400).json({ ok: false, error: `项目初始化失败：${provisionErr.message}` });
       }
     } catch (err) {
       if (String(err.message).includes("Duplicate")) {
-        return res.status(409).json({ ok: false, error: "project already exists" });
+        return res.status(409).json({ ok: false, error: "项目已存在" });
       }
       return res.status(500).json({ ok: false, error: err.message });
     }
@@ -111,7 +145,7 @@ function createPlatformRoutes() {
   router.get("/projects/:projectKey/envs", async (req, res) => {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     if (!isValidProjectKey(projectKey)) {
-      return res.status(400).json({ ok: false, error: "invalid projectKey format" });
+      return res.status(400).json({ ok: false, error: "项目标识格式不正确" });
     }
     try {
       const items = await listProjectEnvs(projectKey);
@@ -125,13 +159,13 @@ function createPlatformRoutes() {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid project/env format" });
+      return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
     }
 
     try {
       const item = await getProjectEnvContext(projectKey, env);
       if (!item) {
-        return res.status(404).json({ ok: false, error: "project env not found" });
+        return res.status(404).json({ ok: false, error: "项目环境不存在" });
       }
       return res.json({
         ok: true,
@@ -157,14 +191,14 @@ function createPlatformRoutes() {
   router.delete("/projects/:projectKey", async (req, res) => {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     if (!isValidProjectKey(projectKey)) {
-      return res.status(400).json({ ok: false, error: "invalid projectKey format" });
+      return res.status(400).json({ ok: false, error: "项目标识格式不正确" });
     }
 
     try {
       const envs = await listProjectEnvs(projectKey);
       const deleted = await deleteProject(projectKey);
       if (!deleted) {
-        return res.status(404).json({ ok: false, error: "project not found" });
+        return res.status(404).json({ ok: false, error: "项目不存在" });
       }
 
       for (const envItem of envs) {
@@ -197,17 +231,17 @@ function createPlatformRoutes() {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey)) {
-      return res.status(400).json({ ok: false, error: "invalid projectKey format" });
+      return res.status(400).json({ ok: false, error: "项目标识格式不正确" });
     }
     if (!isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid env format" });
+      return res.status(400).json({ ok: false, error: "环境格式不正确" });
     }
 
     const payload = parseAdminPayload(req, res);
     if (!payload) return;
     const status = payload.status === undefined ? undefined : normalizeStatus(payload.status);
     if (status !== undefined && !["active", "disabled"].includes(status)) {
-      return res.status(400).json({ ok: false, error: "status must be active or disabled" });
+      return res.status(400).json({ ok: false, error: "状态只能是 active 或 disabled" });
     }
 
     // 对策略输入做归一化，避免空值和大小写导致的行为不一致。
@@ -250,7 +284,7 @@ function createPlatformRoutes() {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid project/env format" });
+      return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
     }
 
     try {
@@ -265,7 +299,7 @@ function createPlatformRoutes() {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid project/env format" });
+      return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
     }
 
     const payload = parseAdminPayload(req, res);
@@ -300,7 +334,7 @@ function createPlatformRoutes() {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid project/env format" });
+      return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
     }
 
     try {
@@ -336,7 +370,7 @@ function createPlatformRoutes() {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid project/env format" });
+      return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
     }
 
     const includeSecret = String(req.query.includeSecret || "").toLowerCase() === "true";
@@ -353,16 +387,16 @@ function createPlatformRoutes() {
     const env = normalizeEnvKey(req.params.env);
     const varKey = normalizeVarKey(req.params.varKey);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
-      return res.status(400).json({ ok: false, error: "invalid project/env format" });
+      return res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
     }
     if (!isValidVarKey(varKey)) {
-      return res.status(400).json({ ok: false, error: "invalid varKey format" });
+      return res.status(400).json({ ok: false, error: "变量名格式不正确" });
     }
 
     const payload = parseAdminPayload(req, res);
     if (!payload) return;
     if (!Object.prototype.hasOwnProperty.call(payload, "value")) {
-      return res.status(400).json({ ok: false, error: "value is required" });
+      return res.status(400).json({ ok: false, error: "变量值不能为空" });
     }
 
     try {

@@ -74,7 +74,7 @@ function createApp() {
   mountFrontendApp(app, frontend);
 
   app.use((err, _req, res, _next) => {
-    return res.status(500).json({ ok: false, error: err.message || "internal error" });
+    return res.status(500).json({ ok: false, error: err.message || "服务器内部错误" });
   });
 
   return app;

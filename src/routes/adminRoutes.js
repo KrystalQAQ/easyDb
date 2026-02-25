@@ -82,7 +82,7 @@ function createAdminRoutes() {
     try {
       const user = await getUserDetail(username);
       if (!user) {
-        return res.status(404).json({ ok: false, error: "user not found" });
+        return res.status(404).json({ ok: false, error: "用户不存在" });
       }
       return res.json({ ok: true, user });
     } catch (err) {
@@ -101,22 +101,22 @@ function createAdminRoutes() {
     const status = normalizeStatus(payload.status || "active");
 
     if (!isValidUsername(username)) {
-      return res.status(400).json({ ok: false, error: "invalid username format" });
+      return res.status(400).json({ ok: false, error: "用户名格式不正确" });
     }
     if (password.length < 8) {
-      return res.status(400).json({ ok: false, error: "password length must be at least 8" });
+      return res.status(400).json({ ok: false, error: "密码长度至少 8 位" });
     }
     if (!isValidRole(role)) {
-      return res.status(400).json({ ok: false, error: "invalid role format" });
+      return res.status(400).json({ ok: false, error: "角色格式不正确" });
     }
     if (!["active", "disabled"].includes(status)) {
-      return res.status(400).json({ ok: false, error: "status must be active or disabled" });
+      return res.status(400).json({ ok: false, error: "状态只能是 active 或 disabled" });
     }
 
     try {
       const exists = await getUserDetail(username);
       if (exists) {
-        return res.status(409).json({ ok: false, error: "username already exists" });
+        return res.status(409).json({ ok: false, error: "用户名已存在" });
       }
 
       const passwordHash = await bcrypt.hash(password, bcryptRounds);
@@ -149,19 +149,19 @@ function createAdminRoutes() {
     const nextStatus = payload.status === undefined ? undefined : normalizeStatus(payload.status);
 
     if (nextRole !== undefined && !isValidRole(nextRole)) {
-      return res.status(400).json({ ok: false, error: "invalid role format" });
+      return res.status(400).json({ ok: false, error: "角色格式不正确" });
     }
     if (nextStatus !== undefined && !["active", "disabled"].includes(nextStatus)) {
-      return res.status(400).json({ ok: false, error: "status must be active or disabled" });
+      return res.status(400).json({ ok: false, error: "状态只能是 active 或 disabled" });
     }
     if (nextRole === undefined && nextStatus === undefined) {
-      return res.status(400).json({ ok: false, error: "role or status is required" });
+      return res.status(400).json({ ok: false, error: "角色或状态至少填写一项" });
     }
 
     try {
       const currentUser = await getUserDetail(username);
       if (!currentUser) {
-        return res.status(404).json({ ok: false, error: "user not found" });
+        return res.status(404).json({ ok: false, error: "用户不存在" });
       }
 
       const finalRole = nextRole ?? currentUser.role;
@@ -175,7 +175,7 @@ function createAdminRoutes() {
       if (isRemovingLastAdmin) {
         const adminCount = await countActiveAdmins();
         if (adminCount <= 1) {
-          return res.status(400).json({ ok: false, error: "cannot remove last active admin" });
+          return res.status(400).json({ ok: false, error: "不能移除最后一个活跃管理员" });
         }
       }
 
@@ -210,13 +210,13 @@ function createAdminRoutes() {
     const username = normalizeUsername(req.params.username);
     const newPassword = String(payload.newPassword || "");
     if (newPassword.length < 8) {
-      return res.status(400).json({ ok: false, error: "newPassword length must be at least 8" });
+      return res.status(400).json({ ok: false, error: "新密码长度至少 8 位" });
     }
 
     try {
       const currentUser = await getUserDetail(username);
       if (!currentUser) {
-        return res.status(404).json({ ok: false, error: "user not found" });
+        return res.status(404).json({ ok: false, error: "用户不存在" });
       }
       const passwordHash = await bcrypt.hash(newPassword, bcryptRounds);
       await resetUserPassword(username, passwordHash);
@@ -244,7 +244,7 @@ function createAdminRoutes() {
     try {
       const currentUser = await getUserDetail(username);
       if (!currentUser) {
-        return res.status(404).json({ ok: false, error: "user not found" });
+        return res.status(404).json({ ok: false, error: "用户不存在" });
       }
       if (currentUser.status === "disabled") {
         return res.json({ ok: true, user: currentUser });
@@ -252,7 +252,7 @@ function createAdminRoutes() {
       if (currentUser.role === "admin") {
         const adminCount = await countActiveAdmins();
         if (adminCount <= 1) {
-          return res.status(400).json({ ok: false, error: "cannot disable last active admin" });
+          return res.status(400).json({ ok: false, error: "不能禁用最后一个活跃管理员" });
         }
       }
 
@@ -280,7 +280,7 @@ function createAdminRoutes() {
     try {
       const currentUser = await getUserDetail(username);
       if (!currentUser) {
-        return res.status(404).json({ ok: false, error: "user not found" });
+        return res.status(404).json({ ok: false, error: "用户不存在" });
       }
       if (currentUser.status === "active") {
         return res.json({ ok: true, user: currentUser });
@@ -307,18 +307,18 @@ function createAdminRoutes() {
     if (!ensureDbAuthProvider(res)) return;
     const username = normalizeUsername(req.params.username);
     if (username === req.user.username) {
-      return res.status(400).json({ ok: false, error: "cannot delete self" });
+      return res.status(400).json({ ok: false, error: "不能删除自己" });
     }
 
     try {
       const currentUser = await getUserDetail(username);
       if (!currentUser) {
-        return res.status(404).json({ ok: false, error: "user not found" });
+        return res.status(404).json({ ok: false, error: "用户不存在" });
       }
       if (currentUser.role === "admin" && currentUser.status === "active") {
         const adminCount = await countActiveAdmins();
         if (adminCount <= 1) {
-          return res.status(400).json({ ok: false, error: "cannot delete last active admin" });
+          return res.status(400).json({ ok: false, error: "不能删除最后一个活跃管理员" });
         }
       }
 

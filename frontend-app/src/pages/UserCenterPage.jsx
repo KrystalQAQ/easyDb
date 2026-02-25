@@ -13,7 +13,7 @@ import {
   Typography,
   message,
 } from 'antd'
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { KeyOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useConsole } from '../context/ConsoleContext'
 
 function formatTime(value) {
@@ -30,6 +30,10 @@ function UserCenterPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [form] = Form.useForm()
+
+  const [resetTarget, setResetTarget] = useState(null) // username string
+  const [resetting, setResetting] = useState(false)
+  const [resetForm] = Form.useForm()
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -72,6 +76,25 @@ function UserCenterPage() {
     }
   }
 
+  const onResetPassword = async () => {
+    try {
+      const values = await resetForm.validateFields()
+      setResetting(true)
+      await request(`/api/admin/users/${encodeURIComponent(resetTarget)}/reset-password`, {
+        method: 'POST',
+        body: { newPassword: values.newPassword },
+      })
+      message.success(`用户 ${resetTarget} 密码已修改。`)
+      setResetTarget(null)
+      resetForm.resetFields()
+    } catch (err) {
+      if (err?.errorFields) return
+      message.error(err.message)
+    } finally {
+      setResetting(false)
+    }
+  }
+
   const columns = useMemo(
     () => [
       { title: '用户名', dataIndex: 'username', width: 180 },
@@ -91,6 +114,15 @@ function UserCenterPage() {
         title: '最近登录',
         dataIndex: 'last_login_at',
         render: formatTime,
+      },
+      {
+        title: '操作',
+        width: 100,
+        render: (_, row) => (
+          <Button size="small" icon={<KeyOutlined />} onClick={() => setResetTarget(row.username)}>
+            改密
+          </Button>
+        ),
       },
     ],
     [],
@@ -177,6 +209,42 @@ function UserCenterPage() {
                 { label: 'disabled', value: 'disabled' },
               ]}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`修改密码：${resetTarget}`}
+        open={!!resetTarget}
+        okText="确认修改"
+        cancelText="取消"
+        confirmLoading={resetting}
+        onCancel={() => { setResetTarget(null); resetForm.resetFields() }}
+        onOk={onResetPassword}
+      >
+        <Form form={resetForm} layout="vertical">
+          <Form.Item
+            label="新密码"
+            name="newPassword"
+            rules={[{ required: true, message: '请输入新密码' }, { min: 8, message: '至少 8 位' }]}
+          >
+            <Input.Password placeholder="至少 8 位" />
+          </Form.Item>
+          <Form.Item
+            label="确认新密码"
+            name="confirmPassword"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请再次输入新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) return Promise.resolve()
+                  return Promise.reject(new Error('两次输入的密码不一致'))
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="再次输入新密码" />
           </Form.Item>
         </Form>
       </Modal>

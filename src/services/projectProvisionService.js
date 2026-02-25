@@ -141,20 +141,70 @@ async function maybeInitTables(db, tableSettings = {}) {
   }
 }
 
-async function provisionDefaultEnvForProject(projectKey) {
+async function testDbConnection({ host, port, user, password, database }) {
+  const start = Date.now();
+  const connection = await mysql.createConnection({
+    host: String(host || "").trim(),
+    port: Number(port || 3306),
+    user: String(user || "").trim(),
+    password: String(password || ""),
+    database: database ? String(database).trim() : undefined,
+    connectTimeout: 8000,
+  });
+  try {
+    await connection.query("SELECT 1");
+    return { ok: true, latencyMs: Date.now() - start };
+  } finally {
+    await connection.end();
+  }
+}
+
+// options.manualDb: { host, port, user, password, database } — 手动模式，跳过自动建库
+async function provisionDefaultEnvForProject(projectKey, options = {}) {
   const project = String(projectKey || "").trim().toLowerCase();
   if (!project) {
     throw new Error("projectKey is required");
   }
 
   const settings = platform.defaultEnv || {};
-  if (!settings.autoCreateOnProjectCreate) {
-    return null;
-  }
-
   const env = normalizeEnvKey(settings.envKey || "prod");
   if (!isValidEnvKey(env)) {
     throw new Error("PLATFORM_DEFAULT_ENV_KEY is invalid");
+  }
+
+  // 手动模式：直接使用传入的连接信息，不自动建库
+  if (options.manualDb) {
+    const { host, port, user, password, database } = options.manualDb;
+    if (!host || !user || !database) {
+      throw new Error("manual db settings are incomplete (host, user, database are required)");
+    }
+    const envs = await listProjectEnvs(project);
+    const alreadyExists = envs.some((item) => item.env === env);
+    const context = await upsertProjectEnv(project, env, {
+      status: settings.status || "active",
+      db: {
+        host: String(host).trim(),
+        port: Number(port || 3306),
+        user: String(user).trim(),
+        password: String(password || ""),
+        database: String(database).trim(),
+      },
+      policy: {},
+      requestEncryptionPassword: "",
+    });
+    const nginxConf = await ensureProjectEnvNginxConfig(project, env).catch(() => null);
+    return {
+      created: !alreadyExists,
+      databaseCreated: false,
+      initializedTables: [],
+      nginxConf,
+      context,
+    };
+  }
+
+  // 自动模式：沿用原有逻辑
+  if (!settings.autoCreateOnProjectCreate) {
+    return null;
   }
 
   const db = settings.db || {};
@@ -186,16 +236,6 @@ async function provisionDefaultEnvForProject(projectKey) {
     charset: db.charset,
     collate: db.collate,
   });
-  const initializedTables = await maybeInitTables(
-    {
-      host,
-      port,
-      user,
-      password,
-      database: databaseName,
-    },
-    settings.initTables || {}
-  );
 
   const context = await upsertProjectEnv(project, env, {
     status: settings.status || "active",
@@ -215,7 +255,6 @@ async function provisionDefaultEnvForProject(projectKey) {
   return {
     created: !alreadyExists,
     databaseCreated,
-    initializedTables,
     nginxConf,
     context,
   };
@@ -223,4 +262,5 @@ async function provisionDefaultEnvForProject(projectKey) {
 
 module.exports = {
   provisionDefaultEnvForProject,
+  testDbConnection,
 };

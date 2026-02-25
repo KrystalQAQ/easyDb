@@ -71,7 +71,7 @@ function LoginPage() {
               description="初始化后可用 admin / admin123，首次登录后建议立即修改密码。"
             />
 
-            <Form layout="vertical" initialValues={{ username: 'admin', password: 'admin123' }} onFinish={onFinish}>
+            <Form layout="vertical" onFinish={onFinish}>
               <Form.Item
                 label="网关用户名"
                 name="username"

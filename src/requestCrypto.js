@@ -67,12 +67,12 @@ function readRequestPayload(body, options = {}) {
       const payload = decryptPayload(requestBody.encryptedPayload, encryptionOptions);
       return { ok: true, payload, encrypted: true };
     } catch (err) {
-      return { ok: false, error: `decrypt failed: ${err.message}` };
+    return { ok: false, error: `解密失败：${err.message}` };
     }
   }
 
   if (encryptionOptions.enabled && !encryptionOptions.allowPlaintext) {
-    return { ok: false, error: "encryptedPayload is required" };
+    return { ok: false, error: "请求体必须加密" };
   }
 
   return { ok: true, payload: requestBody, encrypted: false };

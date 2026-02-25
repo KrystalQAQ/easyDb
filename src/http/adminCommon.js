@@ -3,7 +3,7 @@ const { isDbAuthProvider } = require("../userStore");
 
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ ok: false, error: "admin only" });
+    return res.status(403).json({ ok: false, error: "仅管理员可操作" });
   }
   return next();
 }
@@ -14,7 +14,7 @@ function ensureDbAuthProvider(res) {
   }
   res.status(400).json({
     ok: false,
-    error: "user management requires AUTH_PROVIDER=db",
+    error: "用户管理功能需要 AUTH_PROVIDER=db",
   });
   return false;
 }

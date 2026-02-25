@@ -22,7 +22,7 @@ function createSqlRateLimiter(rateLimitConfig) {
       });
       return res.status(429).json({
         ok: false,
-        error: "too many requests",
+        error: "请求过于频繁，请稍后再试",
         requestId,
       });
     },
@@ -98,7 +98,7 @@ async function executeSqlRequest(req, res, options = {}) {
       sqlPreview,
       paramsCount: 0,
       encryptedRequest: parsedBody.encrypted,
-      error: "params must be an array",
+      error: "params 必须是数组",
       durationMs: Date.now() - startMs,
       ...auditMeta,
     });
