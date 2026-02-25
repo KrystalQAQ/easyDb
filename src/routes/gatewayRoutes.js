@@ -48,7 +48,7 @@ function createGatewayRoutes({ sqlRateLimiter }) {
   // 公开访问模式：policy.publicAccess=true 时跳过登录，但强制只允许 SELECT。
   function conditionalAuth(req, res, next) {
     if (req.gatewayContext?.policy?.publicAccess) {
-      req.user = { username: "public", role: "public" };
+      req.user = { username: "public", role: "" };
       return next();
     }
     return authenticate(req, res, next);
