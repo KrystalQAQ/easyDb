@@ -14,54 +14,19 @@ permissions:
   packages: write
 
 jobs:
-  frontend-build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: frontend-app/pnpm-lock.yaml
-
-      - name: Install frontend dependencies
-        run: pnpm --dir frontend-app install --frozen-lockfile
-
-      - name: Build frontend
-        run: pnpm --dir frontend-app build
-
-      - name: Upload frontend dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend-app/dist
-          if-no-files-found: error
-          retention-days: 7
-
   build-and-push:
-    runs-on: ubuntu-latest
-    needs: frontend-build
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download frontend dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend-app/dist
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -73,48 +38,96 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Gateway Docker metadata
-        id: meta-gateway
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/gateway
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Extract platform slug
+        id: slug
+        run: echo "value=$(echo '${{ matrix.platform }}' | tr '/' '-')" >> $GITHUB_OUTPUT
 
-      - name: Build and push Gateway image
+      - name: Build and push Gateway image (by digest)
+        id: build-gateway
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta-gateway.outputs.tags }}
-          labels: ${{ steps.meta-gateway.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          tags: ghcr.io/${{ github.repository }}/gateway
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=gateway-${{ steps.slug.outputs.value }}
+          cache-to: type=gha,mode=max,scope=gateway-${{ steps.slug.outputs.value }}
 
-      - name: Extract Nginx Docker metadata
-        id: meta-nginx
+      - name: Build and push Nginx image (by digest)
+        id: build-nginx
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./nginx/Dockerfile
+          push: true
+          platforms: ${{ matrix.platform }}
+          tags: ghcr.io/${{ github.repository }}/nginx
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=nginx-${{ steps.slug.outputs.value }}
+          cache-to: type=gha,mode=max,scope=nginx-${{ steps.slug.outputs.value }}
+
+      - name: Export digests
+        run: |
+          mkdir -p /tmp/digests/gateway /tmp/digests/nginx
+          echo "${{ steps.build-gateway.outputs.digest }}" > /tmp/digests/gateway/${{ steps.slug.outputs.value }}
+          echo "${{ steps.build-nginx.outputs.digest }}"   > /tmp/digests/nginx/${{ steps.slug.outputs.value }}
+
+      - name: Upload digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.slug.outputs.value }}
+          path: /tmp/digests/
+          retention-days: 1
+
+  merge-manifest:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          merge-multiple: true
+          path: /tmp/digests
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/nginx
+          images: |
+            ghcr.io/${{ github.repository }}/gateway
+            ghcr.io/${{ github.repository }}/nginx
           tags: |
             type=ref,event=branch
             type=ref,event=tag
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Nginx image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./nginx/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta-nginx.outputs.tags }}
-          labels: ${{ steps.meta-nginx.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create and push Gateway manifest
+        run: |
+          TAGS=$(echo "${{ steps.meta.outputs.tags }}" | grep "gateway" | sed 's/^/-t /' | tr '\n' ' ')
+          DIGESTS=$(cat /tmp/digests/gateway/* | sed "s|^|ghcr.io/${{ github.repository }}/gateway@|" | tr '\n' ' ')
+          docker buildx imagetools create $TAGS $DIGESTS
+
+      - name: Create and push Nginx manifest
+        run: |
+          TAGS=$(echo "${{ steps.meta.outputs.tags }}" | grep "nginx" | sed 's/^/-t /' | tr '\n' ' ')
+          DIGESTS=$(cat /tmp/digests/nginx/* | sed "s|^|ghcr.io/${{ github.repository }}/nginx@|" | tr '\n' ' ')
+          docker buildx imagetools create $TAGS $DIGESTS
