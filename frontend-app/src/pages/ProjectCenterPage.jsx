@@ -589,10 +589,10 @@ function ProjectCenterPage() {
       <Card>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <Typography.Title level={4} className="!mb-1">
+            <Typography.Title level={4} className="page-title">
               项目配置中心
             </Typography.Title>
-            <Typography.Text type="secondary">
+            <Typography.Text type="secondary" className="page-subtitle">
               项目切换已放到右上角，本页展示当前所选项目和环境的配置。
             </Typography.Text>
           </div>
@@ -628,10 +628,10 @@ function ProjectCenterPage() {
       ) : null}
 
       <Card>
-        <Typography.Title level={5}>环境参数编辑（扩展）</Typography.Title>
-        <Typography.Text type="secondary">
+        <Typography.Title level={5}>环境参数编辑</Typography.Title>
+        {/* <Typography.Text type="secondary">
           当前编辑：{projectKey || '-'} / {fixedEnv}
-        </Typography.Text>
+        </Typography.Text> */}
 
         <Descriptions size="small" bordered column={2} className="mt-3">
           <Descriptions.Item label="加密请求口令">

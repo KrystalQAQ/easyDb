@@ -58,10 +58,10 @@ function SqlWorkbenchPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%', minHeight: '100%' }}>
       <Card>
-        <Typography.Title level={4} className="!mb-1">
+        <Typography.Title level={4} className="page-title">
           SQL 工作台
         </Typography.Title>
-        <Typography.Text type="secondary">
+        <Typography.Text type="secondary" className="page-subtitle">
           当前项目环境：{projectKey}/{env}
         </Typography.Text>
 

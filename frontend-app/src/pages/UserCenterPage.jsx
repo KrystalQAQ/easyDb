@@ -133,10 +133,10 @@ function UserCenterPage() {
       <Card>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <Typography.Title level={4} className="!mb-1">
+            <Typography.Title level={4} className="page-title">
               平台用户管理
             </Typography.Title>
-            <Typography.Text type="secondary">
+            <Typography.Text type="secondary" className="page-subtitle">
               这里管理的是网关账号（gateway_users），不是业务库 users 表。
             </Typography.Text>
           </div>

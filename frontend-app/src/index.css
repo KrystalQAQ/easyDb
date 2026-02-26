@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Plus Jakarta Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color-scheme: light;
 }
 
 html,
@@ -15,11 +16,9 @@ body {
   margin: 0;
   min-height: 100dvh;
   min-width: 320px;
-  background:
-    radial-gradient(circle at 10% -10%, rgba(20, 184, 166, 0.2), transparent 35%),
-    radial-gradient(circle at 95% 0%, rgba(59, 130, 246, 0.18), transparent 30%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-  color: #1f2937;
+  background: #eff6ff;
+  color: #0f172a;
+  line-height: 1.5;
 }
 
 #root {
@@ -33,22 +32,95 @@ body {
 
 .bg-grid {
   background-image:
-    linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-  background-size: 30px 30px;
+    linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 .card-soft {
-  border: 1px solid rgba(20, 184, 166, 0.2);
-  background: linear-gradient(180deg, #f8fffd 0%, #ffffff 100%);
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+
+.card-soft:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+.console-shell .ant-layout-sider {
+  border-inline-end: 1px solid #dbeafe;
+}
+
+.console-topbar {
+  border-bottom: 1px solid #dbeafe;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+.console-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.console-brand-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #1e40af;
+}
+
+.console-shell .ant-menu-light.ant-menu-inline .ant-menu-item {
+  margin-inline: 8px;
+  border-radius: 8px;
+  height: 38px;
+  line-height: 38px;
+}
+
+.console-shell .ant-menu-light.ant-menu-inline .ant-menu-item-selected {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.console-main .ant-card {
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.console-main .ant-table-wrapper .ant-table {
+  border-radius: 10px;
+}
+
+.console-page-head {
+  border-bottom: 1px solid #dbeafe;
+  background: transparent;
+  padding: 12px 16px;
+}
+
+.console-main-panel {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.page-title {
+  margin-bottom: 4px !important;
+  color: #0f172a !important;
+}
+
+.page-subtitle {
+  color: #475569 !important;
 }
 
 .json-viewer {
   max-height: 420px;
   overflow: auto;
   margin: 0;
-  border-radius: 12px;
-  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  border: 1px solid #dbeafe;
   background: #0f172a;
   color: #dbeafe;
   padding: 12px;

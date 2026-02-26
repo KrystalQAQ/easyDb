@@ -86,7 +86,7 @@ function AuditCenterPage() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%', minHeight: '100%' }}>
       <Card>
-        <Typography.Title level={4} className="!mb-4">
+        <Typography.Title level={4} className="page-title !mb-4">
           审计日志
         </Typography.Title>
 

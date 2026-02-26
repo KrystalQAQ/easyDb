@@ -12,10 +12,32 @@ createRoot(document.getElementById('root')).render(
     <ConfigProvider
       locale={zhCN}
       theme={{
+        hashed: false,
         token: {
-          colorPrimary: '#0f766e',
+          colorPrimary: '#1e40af',
+          colorInfo: '#3b82f6',
+          colorSuccess: '#22c55e',
+          colorBgLayout: '#eff6ff',
+          colorText: '#0f172a',
           borderRadius: 10,
-          fontFamily: '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+          fontFamily: '"Plus Jakarta Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif',
+        },
+        components: {
+          Layout: {
+            siderBg: '#ffffff',
+            triggerBg: '#ffffff',
+          },
+          Menu: {
+            itemBg: '#ffffff',
+            itemColor: '#334155',
+            itemSelectedBg: '#dbeafe',
+            itemSelectedColor: '#1e3a8a',
+            itemHoverColor: '#1d4ed8',
+            itemHeight: 38,
+          },
+          Card: {
+            colorBorderSecondary: '#dbeafe',
+          },
         },
       }}
     >

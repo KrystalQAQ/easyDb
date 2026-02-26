@@ -564,9 +564,10 @@ function ApiCenterPage() {
           <Col xs={24} md={5}>
             <div className="rounded border border-slate-200 p-1">
               {sideItems.map((item) => (
-                <div
+                <button
                   key={item.key}
-                  className={`cursor-pointer rounded px-3 py-2 text-sm transition-colors ${(selectedGroupKey ?? '__all__') === item.key ? 'bg-blue-50 text-blue-600 font-medium' : 'hover:bg-slate-50'}`}
+                  type="button"
+                  className={`w-full cursor-pointer rounded px-3 py-2 text-left text-sm transition-colors ${(selectedGroupKey ?? '__all__') === item.key ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-slate-50'}`}
                   onClick={() => setSelectedGroupKey(item.key === '__all__' ? null : item.key)}
                 >
                   <div className="flex items-center justify-between">
@@ -580,7 +581,7 @@ function ApiCenterPage() {
                       </Space>
                     )}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </Col>
@@ -795,7 +796,7 @@ function ApiCenterPageWithTabs() {
   return (
     <Card>
       <div className="mb-2 flex items-center gap-2">
-        <Typography.Title level={4} className="!mb-0"><ApiOutlined className="mr-1" />接口中心</Typography.Title>
+        <Typography.Title level={4} className="page-title !mb-0"><ApiOutlined className="mr-1" />接口中心</Typography.Title>
         <Tag color="geekblue">{projectKey}</Tag>
         <Tag color="cyan">{env}</Tag>
       </div>

@@ -5,6 +5,8 @@ import {
   AuditOutlined,
   DatabaseOutlined,
   LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   ReloadOutlined,
   SettingOutlined,
   TeamOutlined,
@@ -27,6 +29,7 @@ function ConsoleLayout() {
   const navigate = useNavigate()
   const { token, user, request, projectKey, env, logout, updateGatewayContext } = useConsole()
   const fixedEnv = 'prod'
+  const [collapsed, setCollapsed] = useState(false)
   const [projectLoading, setProjectLoading] = useState(false)
   const [projects, setProjects] = useState([])
 
@@ -88,18 +91,35 @@ function ConsoleLayout() {
     [fixedEnv, updateGatewayContext],
   )
 
+  const currentMeta = useMemo(() => {
+    const map = {
+      '/app/projects': { title: '项目配置中心', desc: '开通项目、管理环境参数与部署配置' },
+      '/app/sql': { title: 'SQL 工作台', desc: '面向当前项目环境执行 SQL 与调试参数' },
+      '/app/apis': { title: '接口管理中心', desc: '管理 API 分组、接口模板与认证密钥' },
+      '/app/users': { title: '平台用户管理', desc: '维护网关账号、角色权限与密码重置' },
+      '/app/audit': { title: '审计日志中心', desc: '检索操作轨迹、错误状态和请求上下文' },
+    }
+    return map[selectedMenu] || map['/app/projects']
+  }, [selectedMenu])
+
   return (
-    <Layout className="bg-grid" style={{ minHeight: '100dvh', height: '100dvh' }}>
-      <Sider width={220} className="!bg-slate-900/95">
-        <div className="border-b border-slate-700/70 px-5 py-5">
-          <Typography.Title level={4} className="!mb-0 !text-white">
-            EasyDB
-          </Typography.Title>
-          <Typography.Text className="!text-slate-300">网关管理员台</Typography.Text>
+    <Layout className="console-shell console-v2 bg-grid" style={{ minHeight: '100dvh', height: '100dvh' }}>
+      <Sider width={232} collapsedWidth={76} collapsed={collapsed} className="!bg-white">
+        <div className="border-b border-blue-100 px-4 py-4">
+          {!collapsed ? (
+            <>
+              <Typography.Title level={5} className="!mb-0 !text-slate-900">
+                EasyDB Console
+              </Typography.Title>
+              <Typography.Text className="!text-xs !text-slate-500">统一数据网关控制台</Typography.Text>
+            </>
+          ) : (
+            <Typography.Text strong>EDB</Typography.Text>
+          )}
         </div>
 
         <Menu
-          theme="dark"
+          theme="light"
           mode="inline"
           selectedKeys={[selectedMenu]}
           onClick={({ key }) => navigate(key)}
@@ -108,35 +128,49 @@ function ConsoleLayout() {
         />
       </Sider>
 
-      <Layout style={{ minHeight: '100%', height: '100%' }}>
-        <Header className="!h-auto !bg-white/70 !px-6 !py-3 backdrop-blur">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <Tag color="geekblue">管理员：{user?.username || '-'}</Tag>
-              <Tag color="cyan">角色：{user?.role || '-'}</Tag>
+      <Layout style={{ minHeight: 0 }}>
+        <Header className="console-topbar !h-auto !bg-white !px-5 !py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Button
+                type="text"
+                aria-label="切换导航栏"
+                icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                onClick={() => setCollapsed((value) => !value)}
+              />
+              <Tag color="blue">环境：{fixedEnv}</Tag>
             </div>
 
-            <Space wrap>
+            <div className="flex items-center gap-2">
               <Select
                 placeholder="选择项目"
                 value={projectKey || undefined}
                 options={projectOptions}
-                style={{ width: 240 }}
+                style={{ width: 220 }}
                 loading={projectLoading}
                 onChange={onSwitchProject}
               />
               <Button icon={<ReloadOutlined />} loading={projectLoading} onClick={() => void loadProjects()}>
-                刷新
+                同步项目
               </Button>
+              <Tag color="geekblue">管理员：{user?.username || '-'}</Tag>
+              <Tag color="cyan">角色：{user?.role || '-'}</Tag>
               <Button danger icon={<LogoutOutlined />} onClick={logout}>
                 退出
               </Button>
-            </Space>
+            </div>
           </div>
         </Header>
 
-        <Content className="flex flex-1 min-h-0 flex-col p-6">
-          <div className="flex-1 min-h-0 overflow-auto">
+        <div className="console-page-head">
+          <Typography.Title level={4} className="!mb-1 !text-slate-900">
+            {currentMeta.title}
+          </Typography.Title>
+          <Typography.Text className="!text-slate-600">{currentMeta.desc}</Typography.Text>
+        </div>
+
+        <Content className="console-main flex flex-1 min-h-0 flex-col px-4 pb-4">
+          <div className="console-main-panel flex-1 min-h-0 overflow-auto">
             <Outlet />
           </div>
         </Content>
