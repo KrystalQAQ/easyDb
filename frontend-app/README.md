@@ -9,9 +9,9 @@ pnpm install
 pnpm dev
 ```
 
-默认地址：`http://localhost:5173/demo/`
+默认地址：`http://localhost:5173/`
 
-- 路由基准路径为 `/demo`
+- 路由基准路径为 `/`
 - `vite` 开发代理会把 `/api` 转发到 `http://localhost:3000`
 
 ## 构建
@@ -20,4 +20,4 @@ pnpm dev
 pnpm build
 ```
 
-构建产物输出到 `frontend-app/dist`，由后端通过 `FRONTEND_DIST_DIR` 托管到 `http://localhost:3000/demo/`。
+构建产物输出到 `frontend-app/dist`，由后端通过 `FRONTEND_DIST_DIR` 托管到 `http://localhost:3000/`。

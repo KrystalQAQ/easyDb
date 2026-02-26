@@ -223,8 +223,8 @@ pnpm frontend:dev
 ## 前端控制台（Vite + TailwindCSS + Ant Design + Router）
 
 - 前端工程：`frontend-app`
-- 访问入口：`http://localhost:3000/demo/`
-- 路由结构：先登录 `/demo/login`，后进入 `/demo/app/*`
+- 访问入口：`http://localhost:3000/`
+- 路由结构：先登录 `/login`，后进入 `/app/*`
 - 本地开发：`pnpm frontend:dev`（默认 5173，代理 `/api` 到 3000）
 - 生产构建：`pnpm frontend:build`（输出目录由 `FRONTEND_DIST_DIR` 指向 `frontend-app/dist`）
 

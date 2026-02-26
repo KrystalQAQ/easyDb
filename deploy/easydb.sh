@@ -112,7 +112,7 @@ cmd_install() {
   start_nginx
 
   log "=== 安装完成 ==="
-  log "  管理后台: http://<host>:$NGINX_PORT/demo/"
+  log "  管理后台: http://admin.254253.xyz:$NGINX_PORT/"
   log "  Gateway API: http://<host>:$GATEWAY_PORT"
 }
 
@@ -130,7 +130,7 @@ cmd_update() {
   start_gateway
   start_nginx
   log "=== 更新完成 ==="
-  log "  管理后台: http://<host>:$NGINX_PORT/demo/"
+  log "  管理后台: http://admin.254253.xyz:$NGINX_PORT/"
 }
 
 cmd_uninstall() {

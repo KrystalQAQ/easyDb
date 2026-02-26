@@ -19,23 +19,14 @@ function createApp() {
 
   app.use(express.json({ limit: "256kb" }));
 
-  const demoDistDir = path.resolve(process.cwd(), "frontend-app/dist");
-  const demoIndexFile = path.join(demoDistDir, "index.html");
-  if (fs.existsSync(demoIndexFile)) {
-    app.use(
-      "/demo",
-      express.static(demoDistDir, {
-        index: false,
-        maxAge: "1h",
-      })
-    );
-    app.get("/demo/*", (req, res, next) => {
-      if (/\.[^/]+$/.test(req.path)) return next();
-      return res.sendFile(demoIndexFile);
-    });
-  } else {
-    app.use("/demo", express.static(path.resolve(process.cwd(), "frontend-demo")));
-  }
+  const consoleDistDir = path.resolve(process.cwd(), "frontend-app/dist");
+  const fallbackDistDir = path.resolve(process.cwd(), "frontend-demo");
+  const hasBuiltConsole = fs.existsSync(path.join(consoleDistDir, "index.html"));
+  const staticDir = hasBuiltConsole ? consoleDistDir : fallbackDistDir;
+  const indexFile = path.join(staticDir, "index.html");
+  const staticOptions = hasBuiltConsole ? { index: false, maxAge: "1h" } : { index: false };
+
+  app.use(express.static(staticDir, staticOptions));
   // 保留旧路由，确保老前端在迁移到多项目前缀前仍可继续访问。
   app.use("/api", createLegacyRoutes({ sqlRateLimiter }));
   app.use("/api/admin", createAdminRoutes());
@@ -44,6 +35,14 @@ function createApp() {
   app.use("/api/platform", createPlatformApiKeyRoutes());
   app.use("/api/gw", createGatewayRoutes({ sqlRateLimiter }));
   app.use("/api/gw", createGatewayApiRoutes({ sqlRateLimiter }));
+
+  if (fs.existsSync(indexFile)) {
+    app.get("*", (req, res, next) => {
+      if (req.path === "/api" || req.path.startsWith("/api/")) return next();
+      if (/\.[^/]+$/.test(req.path)) return next();
+      return res.sendFile(indexFile);
+    });
+  }
 
   app.use((err, _req, res, _next) => {
     return res.status(500).json({ ok: false, error: err.message || "服务器内部错误" });

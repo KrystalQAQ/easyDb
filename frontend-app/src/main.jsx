@@ -21,7 +21,7 @@ createRoot(document.getElementById('root')).render(
     >
       <AntdApp>
         <ConsoleProvider>
-          <BrowserRouter basename="/demo">
+          <BrowserRouter>
             <App />
           </BrowserRouter>
         </ConsoleProvider>

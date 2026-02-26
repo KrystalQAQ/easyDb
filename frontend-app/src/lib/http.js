@@ -43,7 +43,10 @@ async function requestJson({ apiBase, token, path, method = 'GET', body, auth = 
   const payload = await parseJsonSafe(response)
   if (!response.ok || payload.ok === false) {
     const requestId = payload.requestId ? ` (requestId: ${payload.requestId})` : ''
-    throw new Error(`${payload.error || response.statusText || '请求失败'}${requestId}`)
+    const error = new Error(`${payload.error || response.statusText || '请求失败'}${requestId}`)
+    error.status = response.status
+    error.payload = payload
+    throw error
   }
 
   return payload

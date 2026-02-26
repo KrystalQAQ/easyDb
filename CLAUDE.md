@@ -70,10 +70,10 @@ The frontend dev server (port 5173) proxies `/api` to `http://localhost:3000`.
 
 ### Frontend (`frontend-app/`)
 
-React 19 + Vite + TailwindCSS 4 + Ant Design 6. Base URL is `/demo/`.
+React 19 + Vite + TailwindCSS 4 + Ant Design 6. Base URL is `/`.
 
 - `src/main.jsx` — Entry point
-- `src/App.jsx` — Root with React Router (`/demo/login` → `/demo/app/*`)
+- `src/App.jsx` — Root with React Router (`/login` → `/app/*`)
 - `src/pages/` — Login and app management pages
 - `src/context/` — React context for state management
 - `src/lib/` — Utilities

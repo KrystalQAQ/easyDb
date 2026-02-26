@@ -40,25 +40,40 @@ const ConsoleContext = createContext(null)
 function ConsoleProvider({ children }) {
   const [state, setState] = useState(() => restoreState())
 
-  const persist = useCallback((next) => {
-    setState(next)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-    }
+  const persist = useCallback((nextOrUpdater) => {
+    setState((previous) => {
+      const next = typeof nextOrUpdater === 'function' ? nextOrUpdater(previous) : nextOrUpdater
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+      }
+      return next
+    })
   }, [])
 
   const request = useCallback(
     async (path, options = {}) => {
-      return requestJson({
-        apiBase: state.apiBase,
-        token: state.token,
-        path,
-        method: options.method,
-        body: options.body,
-        auth: options.auth !== false,
-      })
+      const authEnabled = options.auth !== false
+      try {
+        return await requestJson({
+          apiBase: state.apiBase,
+          token: state.token,
+          path,
+          method: options.method,
+          body: options.body,
+          auth: authEnabled,
+        })
+      } catch (error) {
+        if (authEnabled && error?.status === 401 && state.token) {
+          persist((previous) => ({
+            ...previous,
+            token: '',
+            user: null,
+          }))
+        }
+        throw error
+      }
     },
-    [state.apiBase, state.token],
+    [persist, state.apiBase, state.token],
   )
 
   const login = useCallback(
