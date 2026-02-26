@@ -1,22 +1,11 @@
-import { useMemo, useState } from 'react'
-import {
-  Alert,
-  Button,
-  Drawer,
-  Form,
-  Input,
-  Layout,
-  Menu,
-  Space,
-  Tag,
-  Typography,
-  message,
-} from 'antd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Button, Layout, Menu, Select, Space, Tag, Typography, message } from 'antd'
 import {
   ApiOutlined,
   AuditOutlined,
   DatabaseOutlined,
   LogoutOutlined,
+  ReloadOutlined,
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
@@ -36,20 +25,10 @@ const menuItems = [
 function ConsoleLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const {
-    token,
-    user,
-    apiBase,
-    projectKey,
-    env,
-    logout,
-    verifyMe,
-    updateApiBase,
-  } = useConsole()
-
-  const [settingOpen, setSettingOpen] = useState(false)
-  const [verifyLoading, setVerifyLoading] = useState(false)
-  const [form] = Form.useForm()
+  const { token, user, request, projectKey, env, logout, updateGatewayContext } = useConsole()
+  const fixedEnv = 'prod'
+  const [projectLoading, setProjectLoading] = useState(false)
+  const [projects, setProjects] = useState([])
 
   const selectedMenu = useMemo(() => {
     if (location.pathname.startsWith('/app/sql')) return '/app/sql'
@@ -63,33 +42,51 @@ function ConsoleLayout() {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
-  const onVerify = async () => {
-    setVerifyLoading(true)
+  const loadProjects = useCallback(async () => {
+    setProjectLoading(true)
     try {
-      const payload = await verifyMe()
-      message.success(`身份校验成功：${payload.user?.username || '-'} / ${payload.user?.role || '-'}`)
+      const payload = await request('/api/platform/projects')
+      const list = Array.isArray(payload.items) ? payload.items : []
+      const visibleList = list.filter((item) => item.projectKey !== 'default')
+      setProjects(visibleList)
+      return visibleList
     } catch (err) {
       message.error(err.message)
+      return []
     } finally {
-      setVerifyLoading(false)
+      setProjectLoading(false)
     }
-  }
+  }, [request])
 
-  const openSettings = () => {
-    form.setFieldsValue({ apiBase })
-    setSettingOpen(true)
-  }
+  useEffect(() => {
+    void loadProjects()
+  }, [loadProjects])
 
-  const submitSettings = async () => {
-    try {
-      const values = await form.validateFields()
-      updateApiBase(values.apiBase)
-      setSettingOpen(false)
-      message.success('API 地址已更新。')
-    } catch {
-      // handled by antd form
+  useEffect(() => {
+    if (env !== fixedEnv) {
+      updateGatewayContext({ projectKey, env: fixedEnv })
     }
-  }
+  }, [env, fixedEnv, projectKey, updateGatewayContext])
+
+  useEffect(() => {
+    if (!projects.length) return
+    const exists = projects.some((item) => item.projectKey === projectKey)
+    if (!exists) {
+      updateGatewayContext({ projectKey: projects[0].projectKey, env: fixedEnv })
+    }
+  }, [fixedEnv, projectKey, projects, updateGatewayContext])
+
+  const projectOptions = useMemo(
+    () => projects.map((item) => ({ label: `${item.projectKey} (${item.name})`, value: item.projectKey })),
+    [projects],
+  )
+
+  const onSwitchProject = useCallback(
+    (nextProject) => {
+      updateGatewayContext({ projectKey: nextProject, env: fixedEnv })
+    },
+    [fixedEnv, updateGatewayContext],
+  )
 
   return (
     <Layout className="bg-grid" style={{ minHeight: '100dvh', height: '100dvh' }}>
@@ -117,15 +114,20 @@ function ConsoleLayout() {
             <div className="flex flex-wrap items-center gap-2">
               <Tag color="geekblue">管理员：{user?.username || '-'}</Tag>
               <Tag color="cyan">角色：{user?.role || '-'}</Tag>
-              <Tag color="green">当前项目：{projectKey || '-'}</Tag>
-              <Tag color="lime">当前环境：{env || '-'}</Tag>
             </div>
 
             <Space wrap>
-              {/* <Button onClick={onVerify} loading={verifyLoading}>
-                校验登录
-              </Button> */}
-              {/* <Button onClick={openSettings}>API 设置</Button> */}
+              <Select
+                placeholder="选择项目"
+                value={projectKey || undefined}
+                options={projectOptions}
+                style={{ width: 240 }}
+                loading={projectLoading}
+                onChange={onSwitchProject}
+              />
+              <Button icon={<ReloadOutlined />} loading={projectLoading} onClick={() => void loadProjects()}>
+                刷新
+              </Button>
               <Button danger icon={<LogoutOutlined />} onClick={logout}>
                 退出
               </Button>
@@ -134,40 +136,11 @@ function ConsoleLayout() {
         </Header>
 
         <Content className="flex flex-1 min-h-0 flex-col p-6">
-
           <div className="flex-1 min-h-0 overflow-auto">
             <Outlet />
           </div>
         </Content>
       </Layout>
-
-      <Drawer
-        title="网关 API 设置"
-        open={settingOpen}
-        width={420}
-        onClose={() => setSettingOpen(false)}
-        extra={
-          <Space>
-            <Button onClick={() => setSettingOpen(false)}>取消</Button>
-            <Button type="primary" onClick={submitSettings}>
-              保存
-            </Button>
-          </Space>
-        }
-      >
-        <Form layout="vertical" form={form} initialValues={{ apiBase }}>
-          <Form.Item
-            label="API 基础地址"
-            name="apiBase"
-            rules={[{ required: true, message: '请输入 API 地址' }]}
-          >
-            <Input placeholder="http://localhost:3000" />
-          </Form.Item>
-          <Typography.Paragraph type="secondary" className="!mb-0">
-            若你通过后端托管访问本页面，通常保持默认即可。
-          </Typography.Paragraph>
-        </Form>
-      </Drawer>
     </Layout>
   )
 }

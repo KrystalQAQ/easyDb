@@ -59,22 +59,44 @@ function prettyRoleTables(value) {
   }
 }
 
+function pickServerName(value) {
+  return String(value || '')
+    .trim()
+    .split(/\s+/)
+    .find(Boolean) || ''
+}
+
+function buildDomainBase(serverName) {
+  const host = pickServerName(serverName)
+  if (!host) return ''
+
+  const protocol = typeof window !== 'undefined' ? window.location.protocol.replace(':', '') : 'http'
+  const browserPort = typeof window !== 'undefined' ? String(window.location.port || '').trim() : ''
+
+  let hostname = host
+  if (/^https?:\/\//i.test(host)) {
+    try {
+      hostname = new URL(host).hostname
+    } catch {
+      hostname = host.replace(/^https?:\/\//i, '').split('/')[0]
+    }
+  }
+  hostname = String(hostname).split(':')[0]
+  return `${protocol}://${hostname}${browserPort ? `:${browserPort}` : ''}`
+}
+
 function ProjectCenterPage() {
-  const { request, token, apiBase, projectKey, env, updateGatewayContext } = useConsole()
+  const { request, token, projectKey, env, updateGatewayContext } = useConsole()
+  const fixedEnv = 'prod'
 
   const [projectLoading, setProjectLoading] = useState(false)
   const [projects, setProjects] = useState([])
+  const [projectDomainMap, setProjectDomainMap] = useState({})
   const [deletingProject, setDeletingProject] = useState('')
 
-  const [envLoading, setEnvLoading] = useState(false)
   const [envSaving, setEnvSaving] = useState(false)
-  const [envItems, setEnvItems] = useState([])
   const [envMeta, setEnvMeta] = useState(null)
 
-  const [varsLoading, setVarsLoading] = useState(false)
-  const [varSaving, setVarSaving] = useState(false)
-  const [includeSecret, setIncludeSecret] = useState(false)
-  const [vars, setVars] = useState([])
   const [nginxLoading, setNginxLoading] = useState(false)
   const [nginxSaving, setNginxSaving] = useState(false)
   const [nginxReloading, setNginxReloading] = useState(false)
@@ -82,6 +104,7 @@ function ProjectCenterPage() {
   const [nginxPath, setNginxPath] = useState('')
   const [nginxFrontendDir, setNginxFrontendDir] = useState('')
   const [nginxConfText, setNginxConfText] = useState('')
+  const [currentDomainBase, setCurrentDomainBase] = useState('')
 
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -94,45 +117,63 @@ function ProjectCenterPage() {
 
   const [createForm] = Form.useForm()
   const [envForm] = Form.useForm()
-  const [varForm] = Form.useForm()
+
+  const loadProjectDomains = useCallback(
+    async (projectList) => {
+      if (!projectList.length) {
+        setProjectDomainMap({})
+        return
+      }
+
+      const pairs = await Promise.all(
+        projectList.map(async (projectItem) => {
+          try {
+            const envPayload = await request(`/api/platform/projects/${encodeURIComponent(projectItem.projectKey)}/envs`)
+            const envList = Array.isArray(envPayload.items) ? envPayload.items : []
+            const targetEnv = envList.find((item) => item.env === 'prod')?.env || envList[0]?.env
+            if (!targetEnv) return null
+            const nginxPayload = await request(
+              `/api/platform/projects/${encodeURIComponent(projectItem.projectKey)}/envs/${encodeURIComponent(targetEnv)}/nginx`,
+            )
+            const settings = nginxPayload.item?.settings || {}
+            const domainBase = buildDomainBase(settings.serverName)
+            if (!domainBase) return null
+            return [
+              projectItem.projectKey,
+              {
+                domainBase,
+                env: targetEnv,
+              },
+            ]
+          } catch {
+            return null
+          }
+        }),
+      )
+
+      const nextMap = Object.fromEntries(pairs.filter(Boolean))
+      setProjectDomainMap(nextMap)
+    },
+    [request],
+  )
 
   const loadProjects = useCallback(async () => {
     setProjectLoading(true)
     try {
       const payload = await request('/api/platform/projects')
       const list = Array.isArray(payload.items) ? payload.items : []
-      setProjects(list)
-      return list
+      const visibleList = list.filter((item) => item.projectKey !== 'default')
+      setProjects(visibleList)
+      void loadProjectDomains(visibleList)
+      return visibleList
     } catch (err) {
       message.error(err.message)
+      setProjectDomainMap({})
       return []
     } finally {
       setProjectLoading(false)
     }
-  }, [request])
-
-  const loadEnvs = useCallback(
-    async (targetProject) => {
-      if (!targetProject) {
-        setEnvItems([])
-        return []
-      }
-
-      setEnvLoading(true)
-      try {
-        const payload = await request(`/api/platform/projects/${encodeURIComponent(targetProject)}/envs`)
-        const list = Array.isArray(payload.items) ? payload.items : []
-        setEnvItems(list)
-        return list
-      } catch (err) {
-        message.error(err.message)
-        return []
-      } finally {
-        setEnvLoading(false)
-      }
-    },
-    [request],
-  )
+  }, [loadProjectDomains, request])
 
   const loadEnvDetail = useCallback(
     async (targetProject, targetEnv) => {
@@ -172,28 +213,6 @@ function ProjectCenterPage() {
     [envForm, request],
   )
 
-  const loadVars = useCallback(
-    async (targetProject, targetEnv) => {
-      if (!targetProject || !targetEnv) {
-        setVars([])
-        return
-      }
-
-      setVarsLoading(true)
-      try {
-        const payload = await request(
-          `/api/platform/projects/${encodeURIComponent(targetProject)}/envs/${encodeURIComponent(targetEnv)}/vars?includeSecret=${includeSecret}`,
-        )
-        setVars(Array.isArray(payload.items) ? payload.items : [])
-      } catch (err) {
-        message.error(err.message)
-      } finally {
-        setVarsLoading(false)
-      }
-    },
-    [includeSecret, request],
-  )
-
   const loadNginx = useCallback(
     async (targetProject, targetEnv) => {
       if (!targetProject || !targetEnv) {
@@ -201,10 +220,12 @@ function ProjectCenterPage() {
         setNginxPath('')
         setNginxFrontendDir('')
         setNginxConfText('')
+        setCurrentDomainBase('')
         return
       }
 
       setNginxLoading(true)
+      setCurrentDomainBase('')
       try {
         const payload = await request(
           `/api/platform/projects/${encodeURIComponent(targetProject)}/envs/${encodeURIComponent(targetEnv)}/nginx`,
@@ -214,7 +235,9 @@ function ProjectCenterPage() {
         setNginxPath(item.path || '')
         setNginxFrontendDir(item.settings?.frontendDir || '')
         setNginxConfText(item.configText || '')
+        setCurrentDomainBase(buildDomainBase(item.settings?.serverName))
       } catch (err) {
+        setCurrentDomainBase('')
         message.error(err.message)
       } finally {
         setNginxLoading(false)
@@ -230,33 +253,13 @@ function ProjectCenterPage() {
   useEffect(() => {
     if (!projectKey) return
 
-    let canceled = false
-    void (async () => {
-      const envList = await loadEnvs(projectKey)
-      if (canceled) return
-
-      const hasEnv = envList.some((item) => item.env === env)
-      if (!hasEnv) {
-        const fallbackEnv = envList[0]?.env || 'prod'
-        if (fallbackEnv !== env) {
-          updateGatewayContext({ projectKey, env: fallbackEnv })
-          return
-        }
-      }
-
-      await loadEnvDetail(projectKey, env)
-      await loadVars(projectKey, env)
-      await loadNginx(projectKey, env)
-    })()
-
-    return () => {
-      canceled = true
+    if (env !== fixedEnv) {
+      updateGatewayContext({ projectKey, env: fixedEnv })
     }
-  }, [env, loadEnvDetail, loadEnvs, loadNginx, loadVars, projectKey, updateGatewayContext])
 
-  useEffect(() => {
-    void loadVars(projectKey, env)
-  }, [includeSecret, loadVars, projectKey, env])
+    void loadEnvDetail(projectKey, fixedEnv)
+    void loadNginx(projectKey, fixedEnv)
+  }, [env, fixedEnv, loadEnvDetail, loadNginx, projectKey, updateGatewayContext])
 
   const onWizardClose = () => {
     setCreateOpen(false)
@@ -330,15 +333,12 @@ function ProjectCenterPage() {
 
       setCreateResult(payload.defaultEnv || null)
       const nextProject = payload.item?.projectKey || values.projectKey.trim().toLowerCase()
-      const nextEnv = payload.defaultEnv?.env || 'prod'
-      updateGatewayContext({ projectKey: nextProject, env: nextEnv })
+      updateGatewayContext({ projectKey: nextProject, env: fixedEnv })
       onWizardClose()
 
       await loadProjects()
-      await loadEnvs(nextProject)
-      await loadEnvDetail(nextProject, nextEnv)
-      await loadVars(nextProject, nextEnv)
-      await loadNginx(nextProject, nextEnv)
+      await loadEnvDetail(nextProject, fixedEnv)
+      await loadNginx(nextProject, fixedEnv)
 
       message.success('项目已开通。')
     } catch (err) {
@@ -353,7 +353,7 @@ function ProjectCenterPage() {
     (targetProject) => {
       Modal.confirm({
         title: `删除项目 ${targetProject}`,
-        content: '将删除该项目的平台配置和变量配置，不会自动删除 MySQL 物理数据库。',
+        content: '将删除该项目的平台配置，不会自动删除 MySQL 物理数据库。',
         okText: '确认删除',
         okType: 'danger',
         cancelText: '取消',
@@ -367,17 +367,12 @@ function ProjectCenterPage() {
             const nextProjects = await loadProjects()
             if (projectKey === targetProject) {
               const fallbackProject = nextProjects[0]?.projectKey || 'default'
-              const nextEnvs = await loadEnvs(fallbackProject)
-              const fallbackEnv = nextEnvs[0]?.env || 'prod'
-              updateGatewayContext({ projectKey: fallbackProject, env: fallbackEnv })
-              await loadEnvDetail(fallbackProject, fallbackEnv)
-              await loadVars(fallbackProject, fallbackEnv)
-              await loadNginx(fallbackProject, fallbackEnv)
+              updateGatewayContext({ projectKey: fallbackProject, env: fixedEnv })
+              await loadEnvDetail(fallbackProject, fixedEnv)
+              await loadNginx(fallbackProject, fixedEnv)
             } else {
-              await loadEnvs(projectKey)
-              await loadEnvDetail(projectKey, env)
-              await loadVars(projectKey, env)
-              await loadNginx(projectKey, env)
+              await loadEnvDetail(projectKey, fixedEnv)
+              await loadNginx(projectKey, fixedEnv)
             }
 
             message.success(`项目 ${targetProject} 已删除。`)
@@ -389,12 +384,12 @@ function ProjectCenterPage() {
         },
       })
     },
-    [env, loadEnvDetail, loadEnvs, loadNginx, loadProjects, loadVars, projectKey, request, updateGatewayContext],
+    [fixedEnv, loadEnvDetail, loadNginx, loadProjects, projectKey, request, updateGatewayContext],
   )
 
   const onSaveEnv = async () => {
-    if (!projectKey || !env) {
-      message.error('请先选择项目和环境。')
+    if (!projectKey) {
+      message.error('请先选择项目。')
       return
     }
 
@@ -410,7 +405,7 @@ function ProjectCenterPage() {
       }
 
       setEnvSaving(true)
-      await request(`/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(env)}`, {
+      await request(`/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(fixedEnv)}`, {
         method: 'PUT',
         body: {
           status: values.status,
@@ -426,8 +421,7 @@ function ProjectCenterPage() {
         },
       })
 
-      await loadEnvs(projectKey)
-      await loadEnvDetail(projectKey, env)
+      await loadEnvDetail(projectKey, fixedEnv)
       message.success('环境参数已保存。')
     } catch (err) {
       if (err?.errorFields) return
@@ -437,41 +431,9 @@ function ProjectCenterPage() {
     }
   }
 
-  const onSaveVar = async () => {
-    if (!projectKey || !env) {
-      message.error('请先选择项目和环境。')
-      return
-    }
-
-    try {
-      const values = await varForm.validateFields()
-      const varKey = values.key.trim().toUpperCase()
-      setVarSaving(true)
-
-      await request(
-        `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(env)}/vars/${encodeURIComponent(varKey)}`,
-        {
-          method: 'PUT',
-          body: {
-            value: values.value,
-            isSecret: Boolean(values.isSecret),
-          },
-        },
-      )
-
-      await loadVars(projectKey, env)
-      message.success(`变量 ${varKey} 已保存。`)
-    } catch (err) {
-      if (err?.errorFields) return
-      message.error(err.message)
-    } finally {
-      setVarSaving(false)
-    }
-  }
-
   const onSaveNginx = async () => {
-    if (!projectKey || !env) {
-      message.error('请先选择项目和环境。')
+    if (!projectKey) {
+      message.error('请先选择项目。')
       return
     }
     if (!String(nginxConfText || '').trim()) {
@@ -481,13 +443,16 @@ function ProjectCenterPage() {
 
     try {
       setNginxSaving(true)
-      await request(`/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(env)}/nginx`, {
+      await request(
+        `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(fixedEnv)}/nginx`,
+        {
         method: 'PUT',
         body: {
           confText: nginxConfText,
         },
-      })
-      await loadNginx(projectKey, env)
+      },
+      )
+      await loadNginx(projectKey, fixedEnv)
       message.success('Nginx 配置已保存。')
     } catch (err) {
       message.error(err.message)
@@ -497,15 +462,15 @@ function ProjectCenterPage() {
   }
 
   const onReloadNginx = async () => {
-    if (!projectKey || !env) {
-      message.error('请先选择项目和环境。')
+    if (!projectKey) {
+      message.error('请先选择项目。')
       return
     }
 
     try {
       setNginxReloading(true)
       const payload = await request(
-        `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(env)}/nginx/reload`,
+        `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(fixedEnv)}/nginx/reload`,
         {
           method: 'POST',
           body: {},
@@ -528,16 +493,6 @@ function ProjectCenterPage() {
     }
   }
 
-  const projectOptions = useMemo(
-    () => projects.map((item) => ({ label: `${item.projectKey} (${item.name})`, value: item.projectKey })),
-    [projects],
-  )
-
-  const envOptions = useMemo(
-    () => envItems.map((item) => ({ label: `${item.env} (${item.status})`, value: item.env })),
-    [envItems],
-  )
-
   const projectColumns = useMemo(
     () => [
       { title: '项目标识', dataIndex: 'projectKey', width: 180 },
@@ -547,6 +502,18 @@ function ProjectCenterPage() {
         dataIndex: 'status',
         width: 120,
         render: (value) => <Tag color={value === 'active' ? 'green' : 'red'}>{value}</Tag>,
+      },
+      {
+        title: '访问域名',
+        render: (_, row) => {
+          const domainItem = projectDomainMap[row.projectKey]
+          if (!domainItem?.domainBase) return '-'
+          return (
+            <a href={domainItem.domainBase} target="_blank" rel="noreferrer">
+              {domainItem.domainBase}
+            </a>
+          )
+        },
       },
       { title: '更新时间', dataIndex: 'updatedAt', width: 180, render: formatTime },
       {
@@ -565,65 +532,14 @@ function ProjectCenterPage() {
         ),
       },
     ],
-    [deletingProject, onDeleteProject],
-  )
-
-  const envColumns = useMemo(
-    () => [
-      { title: '环境', dataIndex: 'env', width: 120 },
-      {
-        title: '状态',
-        dataIndex: 'status',
-        width: 120,
-        render: (value) => <Tag color={value === 'active' ? 'green' : 'orange'}>{value}</Tag>,
-      },
-      {
-        title: '数据库连接',
-        render: (_, row) => `${row.db?.host || '-'}:${row.db?.port || '-'} / ${row.db?.database || '-'}`,
-      },
-      { title: '更新时间', dataIndex: 'updatedAt', width: 180, render: formatTime },
-    ],
-    [],
-  )
-
-  const varColumns = useMemo(
-    () => [
-      { title: 'Key', dataIndex: 'key', width: 220 },
-      { title: 'Value', dataIndex: 'value', ellipsis: true },
-      {
-        title: '密文',
-        dataIndex: 'isSecret',
-        width: 100,
-        render: (value) => (value ? <Tag color="orange">是</Tag> : <Tag>否</Tag>),
-      },
-      { title: '版本', dataIndex: 'version', width: 90 },
-      { title: '更新时间', dataIndex: 'updatedAt', width: 180, render: formatTime },
-      {
-        title: '操作',
-        width: 120,
-        render: (_, row) => (
-          <Button
-            size="small"
-            onClick={() => {
-              varForm.setFieldsValue({
-                key: row.key,
-                value: row.value === '***' ? '' : row.value,
-                isSecret: row.isSecret,
-              })
-            }}
-          >
-            编辑
-          </Button>
-        ),
-      },
-    ],
-    [varForm],
+    [deletingProject, onDeleteProject, projectDomainMap],
   )
 
   const projectApiInfo = useMemo(() => {
-    const base = String(apiBase || '').replace(/\/+$/, '')
-    if (!projectKey || !env || !base) {
+    const base = String(currentDomainBase || '').replace(/\/+$/, '')
+    if (!base) {
       return {
+        domainBase: '-',
         gatewayBase: '-',
         login: '-',
         me: '-',
@@ -632,13 +548,14 @@ function ProjectCenterPage() {
       }
     }
     return {
+      domainBase: base,
       gatewayBase: `${base}/api`,
       login: `${base}/api/auth/login`,
       me: `${base}/api/auth/me`,
       sql: `${base}/api/sql`,
       health: `${base}/api/health`,
     }
-  }, [apiBase, env, projectKey])
+  }, [currentDomainBase])
 
   const copyText = useCallback(async (text, label) => {
     if (!text || text === '-') {
@@ -675,23 +592,11 @@ function ProjectCenterPage() {
             <Typography.Title level={4} className="!mb-1">
               项目配置中心
             </Typography.Title>
-            <Typography.Text type="secondary">请选择项目后，本页所有数据自动切到该项目。</Typography.Text>
+            <Typography.Text type="secondary">
+              项目切换已放到右上角，本页展示当前所选项目和环境的配置。
+            </Typography.Text>
           </div>
           <Space wrap>
-            <Select
-              placeholder="选择项目"
-              value={projectKey || undefined}
-              options={projectOptions}
-              style={{ width: 260 }}
-              onChange={(value) => updateGatewayContext({ projectKey: value, env })}
-            />
-            <Select
-              placeholder="选择环境"
-              value={env || undefined}
-              options={envOptions}
-              style={{ width: 180 }}
-              onChange={(value) => updateGatewayContext({ projectKey, env: value })}
-            />
             <Button icon={<ReloadOutlined />} onClick={() => void loadProjects()} loading={projectLoading}>
               刷新
             </Button>
@@ -723,21 +628,9 @@ function ProjectCenterPage() {
       ) : null}
 
       <Card>
-        <div className="mb-3 flex items-center justify-between">
-          <Typography.Title level={5} className="!mb-0">
-            环境列表：{projectKey || '-'}
-          </Typography.Title>
-          <Button onClick={() => void loadEnvs(projectKey)} loading={envLoading}>
-            刷新环境
-          </Button>
-        </div>
-        <Table rowKey="env" loading={envLoading} columns={envColumns} dataSource={envItems} pagination={false} />
-      </Card>
-
-      <Card>
         <Typography.Title level={5}>环境参数编辑（扩展）</Typography.Title>
         <Typography.Text type="secondary">
-          当前编辑：{projectKey || '-'} / {env || '-'}
+          当前编辑：{projectKey || '-'} / {fixedEnv}
         </Typography.Text>
 
         <Descriptions size="small" bordered column={2} className="mt-3">
@@ -831,7 +724,7 @@ function ProjectCenterPage() {
               formData.append('file', file)
               try {
                 const res = await fetch(
-                  `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(env)}/deploy`,
+                  `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(fixedEnv)}/deploy`,
                   { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData }
                 )
                 const data = await res.json()
@@ -854,11 +747,27 @@ function ProjectCenterPage() {
           项目 API 信息（给前端联调）
         </Typography.Title>
         <Typography.Text type="secondary">
-          业务前端只调用固定接口：/api/auth/login、/api/auth/me、/api/sql、/api/health。
+          以下地址按当前项目环境对应域名生成，业务前端只调用固定接口：/api/auth/login、/api/auth/me、/api/sql、/api/health。
         </Typography.Text>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Form layout="vertical">
+            <Form.Item label="项目域名">
+              <Input
+                readOnly
+                value={projectApiInfo.domainBase}
+                addonAfter={
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<CopyOutlined />}
+                    onClick={() => void copyText(projectApiInfo.domainBase, '项目域名')}
+                  >
+                    复制
+                  </Button>
+                }
+              />
+            </Form.Item>
             <Form.Item label="前端连接地址（固定 API 前缀）">
               <Input
                 readOnly
@@ -913,11 +822,11 @@ function ProjectCenterPage() {
               value={nginxConfText}
               onChange={(event) => setNginxConfText(event.target.value)}
               autoSize={{ minRows: 18, maxRows: 30 }}
-              placeholder="请选择项目和环境后加载 Nginx 配置"
+              placeholder="请选择项目后加载 Nginx 配置"
             />
           </Form.Item>
           <Space wrap>
-            <Button icon={<ReloadOutlined />} loading={nginxLoading} onClick={() => void loadNginx(projectKey, env)}>
+            <Button icon={<ReloadOutlined />} loading={nginxLoading} onClick={() => void loadNginx(projectKey, fixedEnv)}>
               重新加载配置
             </Button>
             <Button type="primary" icon={<SaveOutlined />} loading={nginxSaving} onClick={onSaveNginx}>
@@ -931,48 +840,6 @@ function ProjectCenterPage() {
             </Button>
           </Space>
         </Form>
-      </Card>
-
-      <Card>
-        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <Typography.Title level={5} className="!mb-0">
-            环境变量：{projectKey || '-'}/{env || '-'}
-          </Typography.Title>
-          <Space>
-            <Checkbox checked={includeSecret} onChange={(event) => setIncludeSecret(event.target.checked)}>
-              显示密文真实值
-            </Checkbox>
-            <Button icon={<ReloadOutlined />} loading={varsLoading} onClick={() => void loadVars(projectKey, env)}>
-              刷新变量
-            </Button>
-          </Space>
-        </div>
-
-        <Form form={varForm} layout="vertical">
-          <div className="grid gap-3 md:grid-cols-[1fr_2fr_auto_auto] md:items-end">
-            <Form.Item
-              name="key"
-              label="变量名"
-              rules={[
-                { required: true, message: '请输入变量名' },
-                { pattern: /^[A-Za-z_][A-Za-z0-9_]{0,127}$/, message: '变量名格式不正确' },
-              ]}
-            >
-              <Input placeholder="例如 API_BASE_URL" />
-            </Form.Item>
-            <Form.Item name="value" label="变量值" rules={[{ required: true, message: '请输入变量值' }]}>
-              <Input placeholder="请输入变量值" />
-            </Form.Item>
-            <Form.Item name="isSecret" valuePropName="checked" initialValue={false}>
-              <Checkbox>密文</Checkbox>
-            </Form.Item>
-            <Button type="primary" loading={varSaving} onClick={onSaveVar}>
-              保存变量
-            </Button>
-          </div>
-        </Form>
-
-        <Table rowKey="key" loading={varsLoading} columns={varColumns} dataSource={vars} pagination={{ pageSize: 6 }} />
       </Card>
 
  
