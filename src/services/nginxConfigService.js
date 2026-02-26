@@ -162,6 +162,16 @@ function buildNginxConfigText(options) {
     "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
     "    proxy_set_header X-Forwarded-Proto $scheme;",
     "  }",
+    "",
+    "  # 业务 API 短路由：/api/:apiKey → /api/gw/:project/:env/api/:apiKey",
+    "  location ~ ^/api/(.+)$ {",
+    `    proxy_pass ${upstreamOrigin}/api/gw/${encodedProject}/${encodedEnv}/api/$1;`,
+    "    proxy_http_version 1.1;",
+    "    proxy_set_header Host $host;",
+    "    proxy_set_header X-Real-IP $remote_addr;",
+    "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+    "    proxy_set_header X-Forwarded-Proto $scheme;",
+    "  }",
     "}",
   ].join("\n");
 }
