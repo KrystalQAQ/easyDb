@@ -152,6 +152,10 @@ async function ensurePlatformTables() {
     });
   }
 
+  // API Keys 表
+  const { ensureApiKeysTable } = require("./apiKeyStore");
+  await ensureApiKeysTable();
+
   const envVarsExists = await dbClient.schema.hasTable(envVarsTable);
   if (!envVarsExists) {
     await dbClient.schema.createTable(envVarsTable, (table) => {

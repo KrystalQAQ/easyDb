@@ -5,6 +5,7 @@ import ProjectCenterPage from './pages/ProjectCenterPage'
 import SqlWorkbenchPage from './pages/SqlWorkbenchPage'
 import UserCenterPage from './pages/UserCenterPage'
 import AuditCenterPage from './pages/AuditCenterPage'
+import ApiCenterPage from './pages/ApiCenterPage'
 import { useConsole } from './context/ConsoleContext'
 
 function RequireAuth() {
@@ -27,6 +28,7 @@ function App() {
           <Route path="sql" element={<SqlWorkbenchPage />} />
           <Route path="users" element={<UserCenterPage />} />
           <Route path="audit" element={<AuditCenterPage />} />
+          <Route path="apis" element={<ApiCenterPage />} />
         </Route>
       </Route>
 

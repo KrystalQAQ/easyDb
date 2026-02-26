@@ -1,6 +1,6 @@
 const express = require("express");
-const { authenticate } = require("../auth");
 const { requireAdmin, parseAdminPayload } = require("../http/adminCommon");
+const { authenticateAdminOrApiKey } = require("../http/authenticateAdminOrApiKey");
 const { writeAuditLog } = require("../auditLogger");
 const { findProjectEnvRecord } = require("../projectStore");
 const { getTenantDbClient } = require("../tenantDbManager");
@@ -32,15 +32,35 @@ const {
 
 function createPlatformApiRoutes() {
   const router = express.Router();
-  router.use(authenticate, requireAdmin);
 
-  // 辅助：解析 projectEnvId
+  // JWT admin 或 API Key 均可访问
+  router.use(authenticateAdminOrApiKey);
+
+  // API Key 认证后放行（project/env 范围校验在 resolveEnvId 里做）
+  // JWT 认证后仍需 admin 角色
+  router.use((req, res, next) => {
+    if (req.apiKeyContext) return next();
+    return requireAdmin(req, res, next);
+  });
+
+  // 辅助：解析 projectEnvId，API Key 认证时同时校验 project/env 范围
   async function resolveEnvId(req, res) {
     const projectKey = normalizeProjectKey(req.params.projectKey);
     const env = normalizeEnvKey(req.params.env);
     if (!isValidProjectKey(projectKey) || !isValidEnvKey(env)) {
       res.status(400).json({ ok: false, error: "项目标识或环境格式不正确" });
       return null;
+    }
+    // API Key 只能访问自己绑定的 project + env
+    if (req.apiKeyContext) {
+      if (projectKey !== req.apiKeyContext.projectKey) {
+        res.status(403).json({ ok: false, error: "API Key 无权访问此项目" });
+        return null;
+      }
+      if (env !== req.apiKeyContext.envKey) {
+        res.status(403).json({ ok: false, error: "API Key 无权访问此环境" });
+        return null;
+      }
     }
     const record = await findProjectEnvRecord(projectKey, env);
     if (!record) {
@@ -322,8 +342,8 @@ function createPlatformApiRoutes() {
         }
       }
       const { sql } = renderSqlTemplate(payload.sqlTemplate, fakeParams);
-      // 用 AST 校验确保 SQL 类型匹配
-      const validation = validateSqlWithPolicy(sql, { role: "admin" }, {
+      // 用 AST 校验确保 SQL 类型匹配，role 传空跳过角色权限检查
+      const validation = validateSqlWithPolicy(sql, { role: "" }, {
         allowedSqlTypes: new Set([sqlType]),
         allowedTables: new Set(),
         roleTables: new Map(),
@@ -423,7 +443,7 @@ function createPlatformApiRoutes() {
           }
         }
         const { sql } = renderSqlTemplate(template, fakeParams);
-        const validation = validateSqlWithPolicy(sql, { role: "admin" }, {
+        const validation = validateSqlWithPolicy(sql, { role: "" }, {
           allowedSqlTypes: new Set([sqlType]),
           allowedTables: new Set(),
           roleTables: new Map(),

@@ -4,6 +4,7 @@ const AdmZip = require("adm-zip");
 const path = require("path");
 const fs = require("fs");
 const { authenticate } = require("../auth");
+const { authenticateAdminOrApiKey } = require("../http/authenticateAdminOrApiKey");
 const { writeAuditLog } = require("../auditLogger");
 const { invalidateProjectEnv } = require("../projectRegistry");
 const {
@@ -38,8 +39,18 @@ const {
 
 function createPlatformRoutes() {
   const router = express.Router();
-  // 平台控制面接口统一要求 admin 权限。
-  router.use(authenticate, requireAdmin);
+  // API Key 请求直接放行（由 platformApiRoutes 处理），JWT 请求仍需 admin 角色
+  router.use((req, res, next) => {
+    const xApiKey = req.headers["x-api-key"] || "";
+    const auth = req.headers.authorization || "";
+    if (xApiKey.startsWith("edb_") || auth.startsWith("Bearer edb_")) {
+      return next(); // 交给后续的 platformApiRoutes 处理
+    }
+    return authenticateAdminOrApiKey(req, res, (err) => {
+      if (err) return next(err);
+      return requireAdmin(req, res, next);
+    });
+  });
 
   // 测试数据库连接，不持久化任何数据
   router.post("/test-db-connection", async (req, res) => {

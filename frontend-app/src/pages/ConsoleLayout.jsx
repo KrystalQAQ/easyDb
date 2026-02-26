@@ -13,6 +13,7 @@ import {
   message,
 } from 'antd'
 import {
+  ApiOutlined,
   AuditOutlined,
   DatabaseOutlined,
   LogoutOutlined,
@@ -27,6 +28,7 @@ const { Header, Sider, Content } = Layout
 const menuItems = [
   { key: '/app/projects', icon: <SettingOutlined />, label: '项目开通' },
   { key: '/app/sql', icon: <DatabaseOutlined />, label: 'SQL 工作台' },
+  { key: '/app/apis', icon: <ApiOutlined />, label: '接口管理' },
   { key: '/app/users', icon: <TeamOutlined />, label: '平台用户' },
   { key: '/app/audit', icon: <AuditOutlined />, label: '审计日志' },
 ]
@@ -51,6 +53,7 @@ function ConsoleLayout() {
 
   const selectedMenu = useMemo(() => {
     if (location.pathname.startsWith('/app/sql')) return '/app/sql'
+    if (location.pathname.startsWith('/app/apis')) return '/app/apis'
     if (location.pathname.startsWith('/app/users')) return '/app/users'
     if (location.pathname.startsWith('/app/audit')) return '/app/audit'
     return '/app/projects'

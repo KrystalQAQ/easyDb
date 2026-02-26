@@ -6,7 +6,20 @@
       "Bash(tail:*)",
       "mcp__db__get_schema",
       "Bash(cd:*)",
-      "mcp__db__clear_cache"
+      "mcp__db__clear_cache",
+      "Bash(python3:*)",
+      "Bash(head:*)",
+      "Bash(cd /d/workspace/default/easyDb && pnpm --dir frontend-app exec eslint src/pages/ApiCenterPage.jsx 2>&1)",
+      "Bash(cd /d/workspace/default/easyDb && node -e \"const {McpServer} = require\\('@modelcontextprotocol/sdk/server/mcp.js'\\); console.log\\(typeof McpServer\\)\" 2>&1)",
+      "Bash(cd /d/workspace/default/easyDb && node -e \"const {z} = require\\('zod'\\); console.log\\(z.string\\(\\).describe\\('test'\\)._def.description\\)\" 2>&1)",
+      "Bash(true:*)",
+      "Bash(echo exit: $?:*)",
+      "Bash(grep :3000:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell:*)",
+      "Bash(netstat:*)",
+      "mcp__db__execute_query"
     ]
   }
 }
