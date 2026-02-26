@@ -1,13 +1,7 @@
 const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
 const path = require("path");
 const fs = require("fs");
 const {
-  corsOrigins,
-  frontend,
-  csp,
-  coopEnabled,
   rateLimit: rateLimitConfig,
 } = require("./config");
 const { createSqlRateLimiter } = require("./services/sqlGatewayService");
@@ -18,44 +12,19 @@ const { createGatewayRoutes } = require("./routes/gatewayRoutes");
 const { createGatewayApiRoutes } = require("./routes/gatewayApiRoutes");
 const { createPlatformApiRoutes } = require("./routes/platformApiRoutes");
 const { createPlatformApiKeyRoutes } = require("./routes/platformApiKeyRoutes");
-const { mountFrontendApp } = require("./http/mountFrontendApp");
 
 function createApp() {
   const app = express();
   const sqlRateLimiter = createSqlRateLimiter(rateLimitConfig);
 
-  app.use(
-    helmet({
-      crossOriginOpenerPolicy: coopEnabled ? { policy: "same-origin" } : false,
-      contentSecurityPolicy: csp.enabled
-        ? {
-            useDefaults: true,
-            directives: {
-              "img-src": csp.imgSrc,
-              "connect-src": csp.connectSrc,
-              "script-src": csp.scriptSrc,
-            },
-          }
-        : false,
-    })
-  );
   app.use(express.json({ limit: "256kb" }));
-  app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin || corsOrigins.includes("*") || corsOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error("CORS blocked"));
-      },
-    })
-  );
 
-  const demoIndexFile = path.join(frontend.distDir, "index.html");
+  const demoDistDir = path.resolve(process.cwd(), "frontend-app/dist");
+  const demoIndexFile = path.join(demoDistDir, "index.html");
   if (fs.existsSync(demoIndexFile)) {
     app.use(
       "/demo",
-      express.static(frontend.distDir, {
+      express.static(demoDistDir, {
         index: false,
         maxAge: "1h",
       })
@@ -75,9 +44,6 @@ function createApp() {
   app.use("/api/platform", createPlatformApiKeyRoutes());
   app.use("/api/gw", createGatewayRoutes({ sqlRateLimiter }));
   app.use("/api/gw", createGatewayApiRoutes({ sqlRateLimiter }));
-
-  // 前端 history fallback 必须最后挂载，避免误吞 API 请求。
-  mountFrontendApp(app, frontend);
 
   app.use((err, _req, res, _next) => {
     return res.status(500).json({ ok: false, error: err.message || "服务器内部错误" });

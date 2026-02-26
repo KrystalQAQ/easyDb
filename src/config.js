@@ -64,10 +64,6 @@ function parseRoleTables(value) {
 
 const allowedSqlTypes = parseCsv(process.env.ALLOWED_SQL_TYPES || "select");
 const allowedTables = parseCsv(process.env.ALLOWED_TABLES);
-const corsOrigins = parseCsv(process.env.CORS_ORIGINS || "*");
-const cspImgSrc = parseCsv(process.env.CSP_IMG_SRC || "'self',data:");
-const cspConnectSrc = parseCsv(process.env.CSP_CONNECT_SRC || "'self'");
-const cspScriptSrc = parseCsv(process.env.CSP_SCRIPT_SRC || "'self'");
 const authUsers = parseAuthUsers(
   process.env.AUTH_USERS ||
     "admin:$2b$12$mLx1iKiVhFY8vgs.uuV.JeU0QhF9yRDu6cMA1tlutj7u/TWz4HRwO:admin;analyst:$2b$12$q1pEp4/o6svhpA.Rse.tAeUKVmk40YjYQoL5FhwPNARAdSXVUO/ci:analyst"
@@ -100,7 +96,6 @@ module.exports = {
     password: process.env.DB_PASSWORD || "",
     database: process.env.DB_NAME || "",
   },
-  corsOrigins,
   requireAuth: parseBoolean(process.env.REQUIRE_AUTH, true),
   jwtSecret: process.env.JWT_SECRET || "change-this-secret-in-production",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
@@ -116,22 +111,6 @@ module.exports = {
   auditQueryMaxLimit: parseNumber(process.env.AUDIT_QUERY_MAX_LIMIT, 500),
   adminUserQueryMaxLimit: parseNumber(process.env.ADMIN_USER_QUERY_MAX_LIMIT, 200),
   auditLogFile: process.env.AUDIT_LOG_FILE || path.resolve(process.cwd(), "logs", "audit.log"),
-  frontend: {
-    enabled: parseBoolean(process.env.FRONTEND_ENABLED, true),
-    distDir: path.resolve(process.cwd(), process.env.FRONTEND_DIST_DIR || "frontend-dist"),
-  },
-  https: {
-    enabled: parseBoolean(process.env.HTTPS_ENABLED, false),
-    certPath: path.resolve(process.cwd(), process.env.HTTPS_CERT_PATH || "certs/server.pem"),
-    keyPath: path.resolve(process.cwd(), process.env.HTTPS_KEY_PATH || "certs/server-key.pem"),
-  },
-  csp: {
-    enabled: parseBoolean(process.env.CSP_ENABLED, true),
-    imgSrc: cspImgSrc,
-    connectSrc: cspConnectSrc,
-    scriptSrc: cspScriptSrc,
-  },
-  coopEnabled: parseBoolean(process.env.COOP_ENABLED, true),
   requestEncryption: {
     enabled: parseBoolean(process.env.REQUEST_ENCRYPTION_ENABLED, false),
     allowPlaintext: parseBoolean(process.env.REQUEST_ENCRYPTION_ALLOW_PLAINTEXT, true),

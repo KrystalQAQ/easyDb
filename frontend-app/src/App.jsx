@@ -22,6 +22,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<RequireAuth />}>
+
         <Route path="/app" element={<ConsoleLayout />}>
           <Route index element={<Navigate to="projects" replace />} />
           <Route path="projects" element={<ProjectCenterPage />} />

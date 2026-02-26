@@ -23,6 +23,7 @@ docker run -d \
   -p 3031:3000 \
   -v "$BASE_DIR/logs:/app/logs" \
   -v "$BASE_DIR/runtime/nginx/conf.d:/app/runtime/nginx/conf.d" \
+  -v "$BASE_DIR/runtime/project-web:/app/runtime/project-web" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   "$GATEWAY_IMAGE"
 
@@ -32,6 +33,8 @@ docker run -d \
   --network "$NETWORK" \
   -p 3080:80 \
   -v "$BASE_DIR/runtime/nginx/conf.d:/etc/nginx/conf.d:ro" \
+  -v "$BASE_DIR/frontend:/usr/share/nginx/html:ro" \
+  -v "$BASE_DIR/runtime/project-web:/project-web:ro" \
   "$NGINX_IMAGE"
 
 echo 'easydb deployed: gateway http://<host>:3031 , nginx http://<host>:3080'
