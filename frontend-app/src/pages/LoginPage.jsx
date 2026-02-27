@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Alert, Avatar, Button, Form, Input, Tag, Typography, message } from 'antd'
+import { Alert, Button, Form, Input, Tag, Typography, message } from 'antd'
 import {
   ApiOutlined,
   AuditOutlined,
@@ -12,6 +12,53 @@ import {
 } from '@ant-design/icons'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useConsole } from '../context/ConsoleContext'
+import AvatarUploader from '../components/AvatarUploader'
+
+// 根据字符串哈希出固定颜色渐变
+const AVATAR_GRADIENTS = [
+  ['#6366f1', '#8b5cf6'], // indigo → violet
+  ['#3b82f6', '#6366f1'], // blue → indigo
+  ['#06b6d4', '#3b82f6'], // cyan → blue
+  ['#10b981', '#06b6d4'], // emerald → cyan
+  ['#f59e0b', '#ef4444'], // amber → red
+  ['#ec4899', '#8b5cf6'], // pink → violet
+  ['#14b8a6', '#6366f1'], // teal → indigo
+  ['#f97316', '#ec4899'], // orange → pink
+]
+
+function getUserAvatarGradient(username) {
+  let hash = 0
+  for (let i = 0; i < (username || '').length; i++) {
+    hash = (hash * 31 + username.charCodeAt(i)) >>> 0
+  }
+  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]
+}
+
+function UserAvatar({ username, size = 40 }) {
+  const letter = (username || '?')[0].toUpperCase()
+  const [from, to] = getUserAvatarGradient(username)
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.28,
+        background: `linear-gradient(135deg, ${from} 0%, ${to} 100%)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.42,
+        fontWeight: 700,
+        color: '#fff',
+        letterSpacing: '-0.01em',
+        flexShrink: 0,
+        boxShadow: `0 4px 14px ${from}55`,
+      }}
+    >
+      {letter}
+    </div>
+  )
+}
 
 function parseRedirectTarget(rawRedirect) {
   const text = String(rawRedirect || '').trim()
@@ -49,7 +96,7 @@ const oauthScopes = [
   { icon: <CheckCircleOutlined />, label: '获取一次性授权码用于 Token 兑换' },
 ]
 
-function AuthorizeView({ user, clientName, redirectTarget, rawState, onAuthorize, onDeny, loading }) {
+function AuthorizeView({ user, clientName, redirectTarget, rawState, onAuthorize, onDeny, loading, onUploadAvatar }) {
   const appName = clientName || '第三方应用'
   const redirectHost = (() => {
     try { return new URL(redirectTarget.target).hostname } catch { return redirectTarget.target }
@@ -66,19 +113,27 @@ function AuthorizeView({ user, clientName, redirectTarget, rawState, onAuthorize
 
           {/* App identity */}
           <div className="flex flex-col items-center text-center mb-7">
-            <div className="flex items-center gap-3 mb-5">
-              {/* requesting app avatar */}
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-indigo-200">
-                <ApiOutlined style={{ color: '#fff', fontSize: 24 }} />
+            <div className="flex items-center gap-4 mb-5">
+              {/* requesting app icon */}
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-indigo-200">
+                  <ApiOutlined style={{ color: '#fff', fontSize: 24 }} />
+                </div>
+                <span className="text-xs text-slate-400 max-w-[64px] truncate">{appName}</span>
               </div>
-              <div className="auth-oauth-arrow">
-                <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
-                  <path d="M0 8h28M22 2l8 6-8 6" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+
+              <div className="auth-oauth-arrow mb-4">
+                <svg width="36" height="16" viewBox="0 0 36 16" fill="none">
+                  <path d="M0 8h32M26 2l8 6-8 6" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              {/* EasyDB avatar */}
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-200">
-                <DatabaseOutlined style={{ color: '#fff', fontSize: 24 }} />
+
+              {/* EasyDB icon */}
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-200">
+                  <DatabaseOutlined style={{ color: '#fff', fontSize: 24 }} />
+                </div>
+                <span className="text-xs text-slate-400">EasyDB</span>
               </div>
             </div>
 
@@ -90,13 +145,21 @@ function AuthorizeView({ user, clientName, redirectTarget, rawState, onAuthorize
             </div>
           </div>
 
-          {/* Logged-in user hint */}
+          {/* Logged-in user */}
           <div className="auth-oauth-user-row mb-5">
-            <Avatar size={28} icon={<UserOutlined />} style={{ background: '#e0e7ff', color: '#4f46e5' }} />
-            <div className="text-sm text-slate-600">
-              当前登录：<span className="font-semibold text-slate-800">{user?.username || user?.name || '未知用户'}</span>
+            <AvatarUploader
+              current={user?.avatar || null}
+              username={user?.username || user?.name || '?'}
+              size={40}
+              onSave={onUploadAvatar}
+            />
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-slate-800 leading-tight truncate">
+                {user?.username || user?.name || '未知用户'}
+              </span>
+              <span className="text-xs text-slate-400 leading-tight">{user?.role || 'user'}</span>
             </div>
-            <Tag color="green" style={{ marginLeft: 'auto', fontSize: 11 }}>已认证</Tag>
+            <Tag color="green" style={{ marginLeft: 'auto', fontSize: 11, flexShrink: 0 }}>已认证</Tag>
           </div>
 
           {/* Scopes */}
@@ -150,7 +213,7 @@ function AuthorizeView({ user, clientName, redirectTarget, rawState, onAuthorize
 }
 
 function LoginPage() {
-  const { login, request, token, user } = useConsole()
+  const { login, request, token, user, uploadAvatar } = useConsole()
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(false)
@@ -238,6 +301,7 @@ function LoginPage() {
         onAuthorize={doAuthorize}
         onDeny={doDeny}
         loading={loading}
+        onUploadAvatar={uploadAvatar}
       />
     )
   }
@@ -303,14 +367,20 @@ function LoginPage() {
         {/* ── Right: Login Form ── */}
         <div className="auth-unified-right rounded-3xl p-8 md:p-10 flex flex-col justify-center">
           <div className="mb-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-600 mb-4">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              安全连接已建立
+            {/* Avatar area */}
+            <div className="flex justify-center mb-5">
+              <div className="auth-login-avatar-wrap">
+                <div className="auth-login-avatar">
+                  <LockOutlined style={{ fontSize: 28, color: '#6366f1' }} />
+                </div>
+                <div className="auth-login-avatar-ring" />
+              </div>
             </div>
-            <Typography.Title level={3} style={{ color: '#1e293b', marginBottom: 4, marginTop: 0 }}>
+
+            <Typography.Title level={3} style={{ color: '#1e293b', marginBottom: 4, marginTop: 0, textAlign: 'center' }}>
               账号认证
             </Typography.Title>
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-slate-500 text-center">
               登录后将进入 <span className="text-indigo-600 font-medium">{targetLabel}</span>
             </div>
           </div>

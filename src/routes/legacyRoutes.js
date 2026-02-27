@@ -7,6 +7,7 @@ const { getTenantDbClient } = require("../tenantDbManager");
 const { buildEffectivePolicy, getGatewayPayloadOptions } = require("../utils/gatewayPolicy");
 const { executeSqlRequest } = require("../services/sqlGatewayService");
 const { requireAdmin } = require("../http/adminCommon");
+const { getUserDetail, updateAvatar } = require("../userStore");
 
 function createLegacyRoutes({ sqlRateLimiter }) {
   const router = express.Router();
@@ -23,8 +24,32 @@ function createLegacyRoutes({ sqlRateLimiter }) {
   router.post("/auth/login", login);
   router.post("/auth/authorize", authorize);
   router.post("/auth/token", exchangeToken);
-  router.get("/auth/me", authenticate, (req, res) => {
-    return res.json({ ok: true, user: req.user });
+  router.get("/auth/me", authenticate, async (req, res) => {
+    try {
+      const detail = await getUserDetail(req.user.username);
+      return res.json({ ok: true, user: { ...req.user, avatar: detail?.avatar || null } });
+    } catch {
+      return res.json({ ok: true, user: req.user });
+    }
+  });
+
+  router.put("/auth/me/avatar", authenticate, async (req, res) => {
+    const { avatar } = req.body || {};
+    if (!avatar || typeof avatar !== "string") {
+      return res.status(400).json({ ok: false, error: "avatar 不能为空" });
+    }
+    if (!avatar.startsWith("data:image/")) {
+      return res.status(400).json({ ok: false, error: "avatar 必须是 data URL 格式" });
+    }
+    if (avatar.length > 1400000) {
+      return res.status(400).json({ ok: false, error: "头像文件过大，请压缩后重试" });
+    }
+    try {
+      await updateAvatar(req.user.username, avatar);
+      return res.json({ ok: true });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   router.post("/sql", authenticate, requireAdmin, sqlRateLimiter, async (req, res) => {

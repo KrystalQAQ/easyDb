@@ -145,6 +145,96 @@ body {
   background: rgba(238, 242, 255, 0.7);
 }
 
+/* ── AvatarUploader ── */
+.avatar-uploader-trigger {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar-uploader-letter {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.avatar-uploader-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.avatar-uploader-trigger:hover .avatar-uploader-overlay {
+  opacity: 1;
+}
+
+.avatar-modal-body {
+  padding: 8px 0 0;
+}
+
+.avatar-preview-wrap {
+  width: 200px;
+  height: 200px;
+  border-radius: 24px;
+  overflow: hidden;
+  margin: 0 auto 16px;
+  border: 1.5px solid rgba(165, 180, 252, 0.4);
+  background: #f1f5f9;
+}
+
+.avatar-preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+}
+
+.auth-login-avatar-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+
+.auth-login-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border: 1.5px solid rgba(165, 180, 252, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-login-avatar-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 27px;
+  border: 1.5px dashed rgba(165, 180, 252, 0.5);
+  animation: auth-ring-spin 12s linear infinite;
+}
+
+@keyframes auth-ring-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .auth-oauth-user-row {
   display: flex;
   align-items: center;

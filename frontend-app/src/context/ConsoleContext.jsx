@@ -109,6 +109,17 @@ function ConsoleProvider({ children }) {
     return payload
   }, [persist, request, state])
 
+  const uploadAvatar = useCallback(async (dataUrl) => {
+    await request('/api/auth/me/avatar', {
+      method: 'PUT',
+      body: { avatar: dataUrl },
+    })
+    persist((prev) => ({
+      ...prev,
+      user: prev.user ? { ...prev.user, avatar: dataUrl } : prev.user,
+    }))
+  }, [persist, request])
+
   const logout = useCallback(() => {
     const next = {
       ...state,
@@ -147,6 +158,7 @@ function ConsoleProvider({ children }) {
       request,
       login,
       verifyMe,
+      uploadAvatar,
       logout,
       updateApiBase,
       updateGatewayContext,

@@ -10,6 +10,7 @@ const {
   getUserDetail,
   createUser,
   updateUser,
+  updateAvatar,
   resetUserPassword,
   deleteUser,
   countActiveAdmins,
@@ -298,6 +299,31 @@ function createAdminRoutes() {
         ip: req.ip,
       });
       return res.json({ ok: true, user });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // 管理员帮任意用户上传头像
+  router.put("/users/:username/avatar", async (req, res) => {
+    if (!ensureDbAuthProvider(res)) return;
+    const username = normalizeUsername(req.params.username);
+    const { avatar } = req.body || {};
+    if (!avatar || typeof avatar !== "string") {
+      return res.status(400).json({ ok: false, error: "avatar 不能为空" });
+    }
+    if (!avatar.startsWith("data:image/")) {
+      return res.status(400).json({ ok: false, error: "avatar 必须是 data URL 格式" });
+    }
+    // base64 部分约 1.2MB 上限（原图 ~900KB）
+    if (avatar.length > 1400000) {
+      return res.status(400).json({ ok: false, error: "头像文件过大，请压缩后重试" });
+    }
+    try {
+      const user = await getUserDetail(username);
+      if (!user) return res.status(404).json({ ok: false, error: "用户不存在" });
+      await updateAvatar(username, avatar);
+      return res.json({ ok: true, username });
     } catch (err) {
       return res.status(500).json({ ok: false, error: err.message });
     }

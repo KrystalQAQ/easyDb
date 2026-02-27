@@ -14,7 +14,7 @@ async function getUserFromEnv(username) {
 
 async function getUserFromDb(username) {
   const row = await dbClient(authUserTable)
-    .select("username", "password_hash", "role", "status")
+    .select("username", "password_hash", "role", "status", "avatar")
     .where({ username })
     .first();
 
@@ -24,6 +24,7 @@ async function getUserFromDb(username) {
     passwordHash: row.password_hash,
     role: row.role,
     status: row.status,
+    avatar: row.avatar || null,
   };
 }
 
@@ -60,7 +61,7 @@ function buildUserQuery(filters = {}) {
 
 async function listUsers(filters = {}) {
   const query = buildUserQuery(filters)
-    .select("id", "username", "role", "status", "last_login_at", "created_at", "updated_at")
+    .select("id", "username", "role", "status", "avatar", "last_login_at", "created_at", "updated_at")
     .orderBy("id", "desc")
     .limit(filters.limit || 50)
     .offset(filters.offset || 0);
@@ -75,9 +76,15 @@ async function countUsers(filters = {}) {
 
 async function getUserDetail(username) {
   return dbClient(authUserTable)
-    .select("id", "username", "role", "status", "last_login_at", "created_at", "updated_at")
+    .select("id", "username", "role", "status", "avatar", "last_login_at", "created_at", "updated_at")
     .where({ username })
     .first();
+}
+
+async function updateAvatar(username, avatar) {
+  return dbClient(authUserTable)
+    .where({ username })
+    .update({ avatar, updated_at: dbClient.fn.now() });
 }
 
 async function createUser({ username, passwordHash, role, status }) {
@@ -126,6 +133,7 @@ module.exports = {
   getUserDetail,
   createUser,
   updateUser,
+  updateAvatar,
   resetUserPassword,
   deleteUser,
   countActiveAdmins,

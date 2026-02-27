@@ -4,7 +4,16 @@ const { bcryptRounds, authUserTable } = require("../src/config");
 
 async function ensureUsersTable() {
   const exists = await dbClient.schema.hasTable(authUserTable);
-  if (exists) return;
+  if (exists) {
+    // 已有表：补加 avatar 列（幂等）
+    const hasAvatar = await dbClient.schema.hasColumn(authUserTable, "avatar");
+    if (!hasAvatar) {
+      await dbClient.schema.alterTable(authUserTable, (table) => {
+        table.text("avatar").nullable();
+      });
+    }
+    return;
+  }
 
   await dbClient.schema.createTable(authUserTable, (table) => {
     table.bigIncrements("id").primary();
@@ -12,6 +21,7 @@ async function ensureUsersTable() {
     table.string("password_hash", 100).notNullable();
     table.string("role", 32).notNullable().defaultTo("analyst");
     table.enu("status", ["active", "disabled"]).notNullable().defaultTo("active");
+    table.text("avatar").nullable();
     table.timestamp("last_login_at").nullable();
     table.timestamp("created_at").notNullable().defaultTo(dbClient.fn.now());
     table.timestamp("updated_at").notNullable().defaultTo(dbClient.fn.now());

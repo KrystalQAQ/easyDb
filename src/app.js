@@ -17,7 +17,7 @@ function createApp() {
   const app = express();
   const sqlRateLimiter = createSqlRateLimiter(rateLimitConfig);
 
-  app.use(express.json({ limit: "256kb" }));
+  app.use(express.json({ limit: "2mb" }));
 
   const consoleDistDir = path.resolve(process.cwd(), "frontend-app/dist");
   const fallbackDistDir = path.resolve(process.cwd(), "frontend-demo");
