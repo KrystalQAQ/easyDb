@@ -144,6 +144,8 @@ Nginx 配置响应示例：
 前缀：`/api`
 
 - `POST /auth/login`
+- `POST /auth/authorize`（跨子域登录：签发一次性授权码并返回回跳地址）
+- `POST /auth/token`（跨子域回调：用授权码兑换 JWT）
 - `GET /auth/me`
 - `POST /sql`
 - `GET /health`
@@ -152,6 +154,7 @@ Nginx 配置响应示例：
 
 - `/api/sql` 会优先映射到默认项目环境。
 - 若默认项目不存在，会回退到旧单库模式。
+- 授权码登录需配置 `AUTH_CODE_ALLOWED_REDIRECT_ORIGINS` 白名单。
 
 ## 5. 常见状态码
 

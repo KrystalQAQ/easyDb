@@ -95,6 +95,7 @@ cp .env.example .env
 
 - 基础：`PORT`、`DB_*`
 - 鉴权：`REQUIRE_AUTH`、`JWT_SECRET`、`JWT_ISSUER`、`JWT_AUDIENCE`、`AUTH_PROVIDER`
+- 跨子域授权码登录：`AUTH_CODE_ENABLED`、`AUTH_CODE_TTL_SECONDS`、`AUTH_CODE_ALLOWED_REDIRECT_ORIGINS`
 - SQL 策略：`ALLOWED_SQL_TYPES`、`ALLOWED_TABLES`、`ROLE_TABLES`
 - 加密：`REQUEST_ENCRYPTION_*`
 - 默认关闭请求体加密（`REQUEST_ENCRYPTION_ENABLED=false`），按需开启
@@ -178,6 +179,8 @@ pnpm frontend:dev
 ### D. 兼容旧接口
 
 - `POST /api/auth/login`
+- `POST /api/auth/authorize`（登录后签发一次性 code 并返回回跳地址）
+- `POST /api/auth/token`（业务域名回调页用 code 换 JWT）
 - `GET /api/auth/me`
 - `POST /api/sql`
 - `GET /api/health`
@@ -218,6 +221,23 @@ pnpm frontend:dev
 2. 第 2 阶段：新增 `JWT_ISSUER` / `JWT_AUDIENCE`，并让调用方按新规则发 token。
 3. 第 3 阶段：所有业务系统切到统一验签参数，完成联调后上线。
 
+### 跨子域（Bearer + localStorage）推荐时序
+
+当管理域名与业务域名不同（如 `admin.xxx` → `nav.xxx`）且不使用 Cookie 共享时：
+
+1. 业务系统跳转统一登录页  
+   `/login?client=nav-web&redirect=http://nav.xxx/auth/callback?next=/app/home&state=<nonce>`
+2. 登录页调用 `POST /api/auth/authorize`（用户名密码 + client + redirect + state）
+3. 网关返回 `redirectTo`（仅包含一次性 `code`，不携带 JWT）
+4. 业务系统回调页调用 `POST /api/auth/token` 用 `code` 兑换 JWT
+5. 业务系统将 JWT 存入本域 `localStorage`，后续请求带 `Authorization: Bearer <token>`
+
+安全要求：
+
+- 必须配置 `AUTH_CODE_ALLOWED_REDIRECT_ORIGINS` 白名单（精确到 origin）。
+- `redirect` 仅允许可信业务域名，禁止任意回跳。
+- 授权码默认 60 秒有效且单次使用。
+
 ## 生产部署 TODO（建议顺序）
 
 1. 配置强密码与密钥：`JWT_SECRET`、`CONFIG_ENCRYPTION_KEY`
@@ -240,6 +260,7 @@ pnpm frontend:dev
 - 前端工程：`frontend-app`
 - 访问入口：`http://localhost:3000/`
 - 路由结构：先登录 `/login`，后进入 `/app/*`
+- 授权码回调页：`/auth/callback`（`code` 换 JWT 并写入本域存储）
 - 本地开发：`pnpm frontend:dev`（默认 5173，代理 `/api` 到 3000）
 - 生产构建：`pnpm frontend:build`（输出目录由 `FRONTEND_DIST_DIR` 指向 `frontend-app/dist`）
 

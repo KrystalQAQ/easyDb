@@ -62,6 +62,51 @@
 
 ---
 
+### `POST /api/auth/authorize`（跨子域登录）
+
+请求体：
+```json
+{
+  "username": "admin",
+  "password": "admin123",
+  "client": "nav-web",
+  "redirect": "http://nav.254253.xyz:3080/auth/callback?next=/app/home",
+  "state": "nonce-123"
+}
+```
+
+成功响应：
+```json
+{
+  "ok": true,
+  "code": "ac_xxx",
+  "codeExpiresInSeconds": 60,
+  "redirectTo": "http://nav.254253.xyz:3080/auth/callback?next=%2Fapp%2Fhome&code=ac_xxx&state=nonce-123"
+}
+```
+
+### `POST /api/auth/token`（授权码换 JWT）
+
+请求体：
+```json
+{
+  "code": "ac_xxx",
+  "client": "nav-web"
+}
+```
+
+成功响应：
+```json
+{
+  "ok": true,
+  "token": "<jwt>",
+  "user": { "username": "admin", "role": "admin" },
+  "expiresIn": "8h"
+}
+```
+
+---
+
 ### 统一认证登录时序（推荐）
 
 1. 打开统一认证页：`GET /login?client=<client>&redirect=<path>`。

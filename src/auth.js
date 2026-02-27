@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const {
+  authCode,
   jwtAudience,
   jwtExpiresIn,
   jwtIssuer,
@@ -8,6 +9,11 @@ const {
   requireAuth,
 } = require("./config");
 const { readRequestPayload } = require("./requestCrypto");
+const {
+  buildAuthorizeRedirectUrl,
+  consumeAuthCode,
+  issueAuthCode,
+} = require("./authCodeStore");
 const { getUserByUsername, touchLastLogin } = require("./userStore");
 
 function isBcryptHash(value) {
@@ -33,6 +39,22 @@ function issueToken(user) {
   return jwt.sign(payload, jwtSecret, signOptions);
 }
 
+async function verifyUserCredentials(username, password) {
+  const user = await getUserByUsername(String(username));
+  if (!user) {
+    return { ok: false, status: 401, error: "用户名或密码错误" };
+  }
+  if (String(user.status || "active") !== "active") {
+    return { ok: false, status: 403, error: "账号已被禁用" };
+  }
+
+  const passed = await verifyPassword(password, user.passwordHash);
+  if (!passed) {
+    return { ok: false, status: 401, error: "用户名或密码错误" };
+  }
+  return { ok: true, user };
+}
+
 async function login(req, res) {
   const parsed = readRequestPayload(req.body, req.requestPayloadOptions || {});
   if (!parsed.ok) {
@@ -44,18 +66,11 @@ async function login(req, res) {
     return res.status(400).json({ ok: false, error: "用户名和密码不能为空" });
   }
 
-  const user = await getUserByUsername(String(username));
-  if (!user) {
-    return res.status(401).json({ ok: false, error: "用户名或密码错误" });
+  const verified = await verifyUserCredentials(username, password);
+  if (!verified.ok) {
+    return res.status(verified.status).json({ ok: false, error: verified.error });
   }
-  if (String(user.status || "active") !== "active") {
-    return res.status(403).json({ ok: false, error: "账号已被禁用" });
-  }
-
-  const passed = await verifyPassword(password, user.passwordHash);
-  if (!passed) {
-    return res.status(401).json({ ok: false, error: "用户名或密码错误" });
-  }
+  const user = verified.user;
 
   const token = issueToken(user);
   try {
@@ -72,6 +87,97 @@ async function login(req, res) {
     },
     expiresIn: jwtExpiresIn,
     encryptedRequest: parsed.encrypted,
+  });
+}
+
+async function authorize(req, res) {
+  const parsed = readRequestPayload(req.body, req.requestPayloadOptions || {});
+  if (!parsed.ok) {
+    return res.status(400).json({ ok: false, error: parsed.error });
+  }
+
+  const {
+    username,
+    password,
+    client = "",
+    redirect = "",
+    state = "",
+  } = parsed.payload || {};
+  if (!username || !password) {
+    return res.status(400).json({ ok: false, error: "用户名和密码不能为空" });
+  }
+  if (!redirect) {
+    return res.status(400).json({ ok: false, error: "redirect 不能为空" });
+  }
+
+  const verified = await verifyUserCredentials(username, password);
+  if (!verified.ok) {
+    return res.status(verified.status).json({ ok: false, error: verified.error });
+  }
+  const user = verified.user;
+  const token = issueToken(user);
+
+  let issued;
+  try {
+    issued = issueAuthCode({
+      token,
+      user: {
+        username: user.username,
+        role: user.role,
+      },
+      client,
+      redirect,
+      state,
+    });
+  } catch (err) {
+    return res.status(400).json({ ok: false, error: err.message });
+  }
+
+  try {
+    await touchLastLogin(user.username);
+  } catch (_err) {
+    // ignore login timestamp errors
+  }
+
+  return res.json({
+    ok: true,
+    code: issued.code,
+    codeExpiresInSeconds: authCode.ttlSeconds,
+    redirectTo: buildAuthorizeRedirectUrl(redirect, {
+      code: issued.code,
+      state: String(state || "").trim(),
+    }),
+    user: {
+      username: user.username,
+      role: user.role,
+    },
+    encryptedRequest: parsed.encrypted,
+  });
+}
+
+function exchangeToken(req, res) {
+  const parsed = readRequestPayload(req.body, req.requestPayloadOptions || {});
+  if (!parsed.ok) {
+    return res.status(400).json({ ok: false, error: parsed.error });
+  }
+
+  const { code, client = "" } = parsed.payload || {};
+  if (!code) {
+    return res.status(400).json({ ok: false, error: "code 不能为空" });
+  }
+
+  let exchanged;
+  try {
+    exchanged = consumeAuthCode(code, { client });
+  } catch (err) {
+    return res.status(401).json({ ok: false, error: err.message });
+  }
+
+  return res.json({
+    ok: true,
+    token: exchanged.token,
+    user: exchanged.user,
+    expiresIn: jwtExpiresIn,
   });
 }
 
@@ -106,5 +212,7 @@ function authenticate(req, res, next) {
 
 module.exports = {
   authenticate,
+  authorize,
+  exchangeToken,
   login,
 };

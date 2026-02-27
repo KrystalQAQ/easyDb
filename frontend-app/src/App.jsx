@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
+import AuthCallbackPage from './pages/AuthCallbackPage'
 import ConsoleLayout from './pages/ConsoleLayout'
 import ProjectCenterPage from './pages/ProjectCenterPage'
 import SqlWorkbenchPage from './pages/SqlWorkbenchPage'
@@ -20,6 +21,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       <Route element={<RequireAuth />}>
 

@@ -77,6 +77,28 @@ async function verifyMe(token) {
 }
 ```
 
+跨子域登录（`admin.xxx` → `nav.xxx`）时，统一认证页调用：
+
+```js
+async function authorizeLogin({ username, password, client, redirect, state }) {
+  return request('/api/auth/authorize', {
+    method: 'POST',
+    body: { username, password, client, redirect, state },
+  })
+}
+```
+
+业务系统回调页（如 `/auth/callback`）再兑换 token：
+
+```js
+async function exchangeTokenByCode(code, client) {
+  return request('/api/auth/token', {
+    method: 'POST',
+    body: { code, client },
+  })
+}
+```
+
 ---
 
 ## 3) 调用业务 API
@@ -206,7 +228,7 @@ async function wrapEncryptedPayload(payload, sharedPassword, enabled) {
 
 ## 6) 功能接入顺序
 
-1. 全局登录与身份验证（`/api/auth/login`、`/api/auth/me`）
+1. 统一认证登录与身份验证（`/api/auth/login`、`/api/auth/me`）
 2. 业务 API 调用（`/api/<apiKey>`）
 3. 可选：加密请求模式
 

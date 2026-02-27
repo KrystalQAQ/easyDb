@@ -12,25 +12,45 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useConsole } from '../context/ConsoleContext'
 
-function sanitizeRedirectPath(rawPath) {
-  const next = String(rawPath || '').trim()
-  if (!next.startsWith('/')) return ''
-  if (next.startsWith('//')) return ''
-  return next
+function parseRedirectTarget(rawRedirect) {
+  const text = String(rawRedirect || '').trim()
+  if (!text) {
+    return { mode: 'internal', target: '/app/projects' }
+  }
+
+  if (text.startsWith('/') && !text.startsWith('//')) {
+    return { mode: 'internal', target: text }
+  }
+
+  try {
+    const url = new URL(text)
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return { mode: 'invalid', target: '/app/projects' }
+    }
+    return { mode: 'external', target: url.toString() }
+  } catch (_err) {
+    return { mode: 'invalid', target: '/app/projects' }
+  }
+}
+
+function sanitizeState(rawState) {
+  return String(rawState || '').trim().slice(0, 120)
 }
 
 function LoginPage() {
-  const { login } = useConsole()
+  const { login, request } = useConsole()
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(false)
 
   const query = useMemo(() => new URLSearchParams(location.search), [location.search])
   const clientName = useMemo(() => query.get('client') || '', [query])
-  const redirectFromQuery = useMemo(() => sanitizeRedirectPath(query.get('redirect')), [query])
+  const redirectTarget = useMemo(() => parseRedirectTarget(query.get('redirect')), [query])
+  const rawState = useMemo(() => sanitizeState(query.get('state')), [query])
+  const fallbackPath = location.state?.from?.pathname || '/app/projects'
 
-  const from = redirectFromQuery || location.state?.from?.pathname || '/app/projects'
-  const targetLabel = clientName || 'EasyDB 控制台'
+  const from = redirectTarget.mode === 'internal' ? redirectTarget.target || fallbackPath : fallbackPath
+  const targetLabel = clientName || (redirectTarget.mode === 'external' ? '业务系统' : 'EasyDB 控制台')
 
   const trustedApps = [
     { icon: <CloudServerOutlined />, title: '管理控制台', desc: '项目、环境与网关配置管理' },
@@ -41,6 +61,26 @@ function LoginPage() {
   const onFinish = async (values) => {
     setLoading(true)
     try {
+      if (redirectTarget.mode === 'external') {
+        const payload = await request('/api/auth/authorize', {
+          method: 'POST',
+          auth: false,
+          body: {
+            username: values.username,
+            password: values.password,
+            client: clientName || 'business-web',
+            redirect: redirectTarget.target,
+            state: rawState,
+          },
+        })
+        if (!payload.redirectTo) {
+          throw new Error('认证回跳地址生成失败')
+        }
+        message.success(`登录成功，正在返回 ${targetLabel}。`)
+        window.location.href = payload.redirectTo
+        return
+      }
+
       await login(values)
       message.success(`登录成功，正在进入 ${targetLabel}。`)
       navigate(from, { replace: true })
@@ -114,7 +154,17 @@ function LoginPage() {
               </Typography.Title>
               <Typography.Text type="secondary">登录后将进入 {targetLabel}。</Typography.Text>
             </div>
-            <Alert showIcon type="info" message={`认证成功后自动跳转至 ${from}`} />
+            <Alert
+              showIcon
+              type={redirectTarget.mode === 'invalid' ? 'warning' : 'info'}
+              message={
+                redirectTarget.mode === 'external'
+                  ? `认证成功后将回跳至 ${redirectTarget.target}`
+                  : redirectTarget.mode === 'invalid'
+                    ? 'redirect 参数无效，登录后将进入控制台首页'
+                    : `认证成功后自动跳转至 ${from}`
+              }
+            />
 
             <Form layout="vertical" onFinish={onFinish} className="mt-1">
               <Form.Item
@@ -139,7 +189,8 @@ function LoginPage() {
             </Form>
 
             <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-slate-600">
-              当前接入路径：<span className="font-medium text-slate-800">/api/auth/login</span>
+              当前接入路径：
+              <span className="font-medium text-slate-800"> {redirectTarget.mode === 'external' ? '/api/auth/authorize' : '/api/auth/login'}</span>
             </div>
           </Space>
         </Card>

@@ -1,5 +1,5 @@
 const express = require("express");
-const { authenticate, login } = require("../auth");
+const { authenticate, authorize, exchangeToken, login } = require("../auth");
 const { dbClient, healthCheck } = require("../db");
 const { defaultProject } = require("../config");
 const { resolveProjectEnv } = require("../projectRegistry");
@@ -21,6 +21,8 @@ function createLegacyRoutes({ sqlRateLimiter }) {
   });
 
   router.post("/auth/login", login);
+  router.post("/auth/authorize", authorize);
+  router.post("/auth/token", exchangeToken);
   router.get("/auth/me", authenticate, (req, res) => {
     return res.json({ ok: true, user: req.user });
   });

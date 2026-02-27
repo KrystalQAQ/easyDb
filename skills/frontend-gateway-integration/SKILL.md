@@ -24,6 +24,7 @@ description: 将前端应用与本仓库的多项目网关集成。适用场景�
 - 优先复用统一认证页，不在每个业务系统重复开发独立账号密码页。
 - 统一认证页提交到全局接口 `POST /api/auth/login`，返回 JWT 后全局复用。
 - 登录后通过 `GET /api/auth/me` 做身份校验与会话恢复。
+- 若登录页与业务页不同源（如 `admin.xxx` → `nav.xxx`），使用 `POST /api/auth/authorize` + `POST /api/auth/token` 的授权码中转模式。
 
 ## 快速工作流
 

@@ -79,6 +79,7 @@ const authUsers = parseAuthUsers(
 const roleTableMap = parseRoleTables(process.env.ROLE_TABLES || "admin:*;analyst:users|orders");
 const defaultProjectKey = (process.env.DEFAULT_PROJECT_KEY || "default").trim().toLowerCase();
 const defaultProjectEnv = (process.env.DEFAULT_PROJECT_ENV || "prod").trim().toLowerCase();
+const authCodeAllowedRedirectOrigins = parseCsv(process.env.AUTH_CODE_ALLOWED_REDIRECT_ORIGINS || "");
 const platformDefaultEnvKey = (process.env.PLATFORM_DEFAULT_ENV_KEY || defaultProjectEnv || "prod")
   .trim()
   .toLowerCase();
@@ -125,6 +126,12 @@ module.exports = {
     enabled: parseBoolean(process.env.REQUEST_ENCRYPTION_ENABLED, false),
     allowPlaintext: parseBoolean(process.env.REQUEST_ENCRYPTION_ALLOW_PLAINTEXT, true),
     password: process.env.REQUEST_ENCRYPTION_PASSWORD || "replace-with-long-shared-password",
+  },
+  authCode: {
+    enabled: parseBoolean(process.env.AUTH_CODE_ENABLED, true),
+    ttlSeconds: Math.max(15, parseNumber(process.env.AUTH_CODE_TTL_SECONDS, 60)),
+    maxStoreSize: Math.max(100, parseNumber(process.env.AUTH_CODE_MAX_STORE_SIZE, 5000)),
+    allowedRedirectOrigins: authCodeAllowedRedirectOrigins,
   },
   defaultProject: {
     key: defaultProjectKey,
