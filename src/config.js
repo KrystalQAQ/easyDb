@@ -64,6 +64,14 @@ function parseRoleTables(value) {
 
 const allowedSqlTypes = parseCsv(process.env.ALLOWED_SQL_TYPES || "select");
 const allowedTables = parseCsv(process.env.ALLOWED_TABLES);
+const jwtSecret = process.env.JWT_SECRET || "change-this-secret-in-production";
+const jwtAudienceList = parseCsv(process.env.JWT_AUDIENCE || "");
+const jwtAudience =
+  jwtAudienceList.length === 0
+    ? ""
+    : jwtAudienceList.length === 1
+      ? jwtAudienceList[0]
+      : jwtAudienceList;
 const authUsers = parseAuthUsers(
   process.env.AUTH_USERS ||
     "admin:$2b$12$mLx1iKiVhFY8vgs.uuV.JeU0QhF9yRDu6cMA1tlutj7u/TWz4HRwO:admin;analyst:$2b$12$q1pEp4/o6svhpA.Rse.tAeUKVmk40YjYQoL5FhwPNARAdSXVUO/ci:analyst"
@@ -97,8 +105,10 @@ module.exports = {
     database: process.env.DB_NAME || "",
   },
   requireAuth: parseBoolean(process.env.REQUIRE_AUTH, true),
-  jwtSecret: process.env.JWT_SECRET || "change-this-secret-in-production",
+  jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "8h",
+  jwtIssuer: (process.env.JWT_ISSUER || "").trim(),
+  jwtAudience,
   bcryptRounds: parseNumber(process.env.BCRYPT_ROUNDS, 12),
   authProvider: (process.env.AUTH_PROVIDER || "env").toLowerCase(),
   authUserTable: process.env.AUTH_USER_TABLE || "gateway_users",

@@ -27,7 +27,7 @@ async function request(path, { method = 'GET', body, token } = {}) {
 
 ---
 
-## 2) 鉴权状态管理
+## 2) 鉴权状态管理（统一认证登录）
 
 ```json
 {
@@ -37,11 +37,29 @@ async function request(path, { method = 'GET', body, token } = {}) {
 ```
 
 规则：
-- 通过 `/api/auth/login` 登录一次，Token 全局复用。
+- 优先跳转统一认证页（如 `/login`），不要在每个子系统重复维护账号密码表单。
+- 统一认证页通过 `/api/auth/login` 登录一次，Token 全局复用。
 - 持久化到 `localStorage`。
 - 公开访问接口无需 Token，直接发请求即可。
 
 ```js
+// 组装统一认证页地址（站内跳转）
+function buildUnifiedLoginUrl({ client, redirect }) {
+  const next = String(redirect || '/').trim()
+  const safeRedirect = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+  const query = new URLSearchParams({
+    client: String(client || 'business-web'),
+    redirect: safeRedirect,
+  })
+  return `/login?${query.toString()}`
+}
+
+// 未登录时跳转统一认证页
+function ensureAuth(token, { client = 'business-web', redirect = '/app/home' } = {}) {
+  if (token) return
+  window.location.href = buildUnifiedLoginUrl({ client, redirect })
+}
+
 // 登录
 async function login(username, password) {
   const data = await request('/api/auth/login', {

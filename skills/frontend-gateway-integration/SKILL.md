@@ -13,11 +13,17 @@ description: 将前端应用与本仓库的多项目网关集成。适用场景�
 
 ```
 业务前端（nav.example.com）
+  GET  /login            → 统一认证页（推荐统一入口）
   POST /api/get-users    → Nginx → gateway:3000/api/gw/nav/prod/api/get-users
   POST /api/auth/login   → Nginx → gateway:3000/api/auth/login（全局）
 ```
 
 前端只需使用简单的 `/api/*` 路径，项目和环境信息由 Nginx 配置决定。
+
+统一认证建议：
+- 优先复用统一认证页，不在每个业务系统重复开发独立账号密码页。
+- 统一认证页提交到全局接口 `POST /api/auth/login`，返回 JWT 后全局复用。
+- 登录后通过 `GET /api/auth/me` 做身份校验与会话恢复。
 
 ## 快速工作流
 
@@ -30,7 +36,7 @@ description: 将前端应用与本仓库的多项目网关集成。适用场景�
    - `easydb_update_api` — 更新已有接口
    - `easydb_test_api` — 测试接口
 4. 实现功能时按以下顺序推进：
-   - 全局登录鉴权（`/api/auth/login`）
+   - 统一认证登录（优先统一认证页 + `POST /api/auth/login`）
    - 业务 API 调用（`/api/<apiKey>`）
 5. 实现统一 HTTP 客户端：
    - 有 Token 时自动附加 `Authorization: Bearer <token>`。
@@ -54,6 +60,7 @@ description: 将前端应用与本仓库的多项目网关集成。适用场景�
 
 ## 集成规范
 
+- 登录入口优先统一到认证页（如 `/login`），避免多套登录交互。
 - 业务前端使用简单路径：`/api/auth/login`、`/api/<apiKey>`。
 - 切换项目通过不同域名实现，前端代码无需感知 projectKey/env。
 - `/api/<apiKey>` 参数放在 `params` 字段内，例如 `{ "params": { "userId": 1 } }`。

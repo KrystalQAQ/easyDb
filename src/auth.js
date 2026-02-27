@@ -1,6 +1,12 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const { jwtExpiresIn, jwtSecret, requireAuth } = require("./config");
+const {
+  jwtAudience,
+  jwtExpiresIn,
+  jwtIssuer,
+  jwtSecret,
+  requireAuth,
+} = require("./config");
 const { readRequestPayload } = require("./requestCrypto");
 const { getUserByUsername, touchLastLogin } = require("./userStore");
 
@@ -20,12 +26,11 @@ function issueToken(user) {
     sub: user.username,
     role: user.role,
   };
+  const signOptions = { expiresIn: jwtExpiresIn };
+  if (jwtIssuer) signOptions.issuer = jwtIssuer;
+  if (jwtAudience) signOptions.audience = jwtAudience;
 
-  return jwt.sign(
-    payload,
-    jwtSecret,
-    { expiresIn: jwtExpiresIn }
-  );
+  return jwt.sign(payload, jwtSecret, signOptions);
 }
 
 async function login(req, res) {
@@ -86,15 +91,15 @@ function authenticate(req, res, next) {
     return res.status(401).json({ ok: false, error: "缺少 Bearer Token" });
   }
 
-  try {
-    const payload = jwt.verify(token, jwtSecret);
-    req.user = {
-      username: payload.sub,
-      role: payload.role || "",
-    };
+  const verifyOptions = {};
+  if (jwtIssuer) verifyOptions.issuer = jwtIssuer;
+  if (jwtAudience) verifyOptions.audience = jwtAudience;
 
+  try {
+    const payload = jwt.verify(token, jwtSecret, verifyOptions);
+    req.user = { username: payload.sub || payload.username || "", role: payload.role || "" };
     return next();
-  } catch (_err) {
+  } catch (_error) {
     return res.status(401).json({ ok: false, error: "Token 无效或已过期" });
   }
 }

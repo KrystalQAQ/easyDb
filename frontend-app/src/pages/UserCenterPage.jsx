@@ -136,9 +136,7 @@ function UserCenterPage() {
             <Typography.Title level={4} className="page-title">
               平台用户管理
             </Typography.Title>
-            <Typography.Text type="secondary" className="page-subtitle">
-              这里管理的是网关账号（gateway_users），不是业务库 users 表。
-            </Typography.Text>
+
           </div>
           <Space>
             <Button icon={<ReloadOutlined />} onClick={() => void loadUsers()} loading={loading}>

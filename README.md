@@ -94,7 +94,7 @@ cp .env.example .env
 重点变量：
 
 - 基础：`PORT`、`DB_*`
-- 鉴权：`REQUIRE_AUTH`、`JWT_SECRET`、`AUTH_PROVIDER`
+- 鉴权：`REQUIRE_AUTH`、`JWT_SECRET`、`JWT_ISSUER`、`JWT_AUDIENCE`、`AUTH_PROVIDER`
 - SQL 策略：`ALLOWED_SQL_TYPES`、`ALLOWED_TABLES`、`ROLE_TABLES`
 - 加密：`REQUEST_ENCRYPTION_*`
 - 默认关闭请求体加密（`REQUEST_ENCRYPTION_ENABLED=false`），按需开启
@@ -202,6 +202,21 @@ pnpm frontend:dev
 - 必需表数量为 0，是否初始化以及初始化哪些表由 `PLATFORM_AUTO_INIT_TABLES` 和 `PLATFORM_DEFAULT_INIT_TABLES` 决定
 - 平台登录用户在 `easydb_platform.gateway_users`；业务库里的 `users` 是业务数据表，两者不共享
 - 默认管理员 `admin/admin123` 仅用于首次引导，生产环境应立即改密并新增专用管理员
+
+## 低改动统一登录过渡方案
+
+不新增 IdP 的情况下，可先让多个 Node 系统共享同一套 JWT 规则：
+
+1. 统一登录入口继续使用 `POST /api/auth/login`。
+2. 所有业务系统统一透传 `Authorization: Bearer <token>`。
+3. 统一配置并共享 `JWT_SECRET`、`JWT_ISSUER`、`JWT_AUDIENCE`。
+4. 网关会按上述规则严格验签，确保 token 只在受信系统内流通。
+
+建议迁移顺序：
+
+1. 第 1 阶段：只配置 `JWT_SECRET`（保持现状）。
+2. 第 2 阶段：新增 `JWT_ISSUER` / `JWT_AUDIENCE`，并让调用方按新规则发 token。
+3. 第 3 阶段：所有业务系统切到统一验签参数，完成联调后上线。
 
 ## 生产部署 TODO（建议顺序）
 

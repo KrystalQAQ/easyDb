@@ -3,7 +3,20 @@
 业务前端通过 Nginx 反代访问网关，所有路径为简单的 `/api/*` 格式。
 项目和环境信息由 Nginx `server_name` 配置决定，前端无需感知。
 
-## 1) 鉴权接口
+## 0) 统一认证页约定（推荐）
+
+推荐所有业务系统复用统一认证页作为入口，例如：
+
+`/login?client=nav-web&redirect=/app/home`
+
+约定：
+- `client`：发起登录的业务系统标识（用于页面展示或审计标签）。
+- `redirect`：认证成功后的站内回跳路径（必须是 `/` 开头的相对路径）。
+- 统一认证页内部调用 `POST /api/auth/login`，成功后保存 Token 并跳转 `redirect`。
+
+---
+
+## 1) 统一认证接口
 
 ### `POST /api/auth/login`
 
@@ -46,6 +59,15 @@
   "scope": { "projectKey": "nav", "env": "prod" }
 }
 ```
+
+---
+
+### 统一认证登录时序（推荐）
+
+1. 打开统一认证页：`GET /login?client=<client>&redirect=<path>`。
+2. 认证页调用：`POST /api/auth/login`。
+3. 登录成功后校验：`GET /api/auth/me`。
+4. 业务 API 请求统一携带：`Authorization: Bearer <jwt>`。
 
 ---
 
