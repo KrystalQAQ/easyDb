@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Alert, Button, Card, Form, Input, Space, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Form, Input, Tag, Typography, message } from 'antd'
 import {
   ApiOutlined,
   AuditOutlined,
+  CheckCircleOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
   LockOutlined,
@@ -14,21 +15,13 @@ import { useConsole } from '../context/ConsoleContext'
 
 function parseRedirectTarget(rawRedirect) {
   const text = String(rawRedirect || '').trim()
-  if (!text) {
-    return { mode: 'internal', target: '/app/projects' }
-  }
-
-  if (text.startsWith('/') && !text.startsWith('//')) {
-    return { mode: 'internal', target: text }
-  }
-
+  if (!text) return { mode: 'internal', target: '/app/projects' }
+  if (text.startsWith('/') && !text.startsWith('//')) return { mode: 'internal', target: text }
   try {
     const url = new URL(text)
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      return { mode: 'invalid', target: '/app/projects' }
-    }
+    if (!['http:', 'https:'].includes(url.protocol)) return { mode: 'invalid', target: '/app/projects' }
     return { mode: 'external', target: url.toString() }
-  } catch (_err) {
+  } catch {
     return { mode: 'invalid', target: '/app/projects' }
   }
 }
@@ -37,8 +30,127 @@ function sanitizeState(rawState) {
   return String(rawState || '').trim().slice(0, 120)
 }
 
+const trustedApps = [
+  { icon: <CloudServerOutlined />, title: '管理控制台', desc: '项目、环境与网关配置' },
+  { icon: <ApiOutlined />, title: '业务 API 平台', desc: '统一接口调用与密钥授权' },
+  { icon: <AuditOutlined />, title: '审计中心', desc: '操作轨迹与风险追踪' },
+]
+
+const policies = [
+  { icon: <DatabaseOutlined />, title: '策略统一', desc: '统一校验 JWT 签发方与受众，避免跨系统误用票据。' },
+  { icon: <SafetyCertificateOutlined />, title: '鉴权可追溯', desc: '所有关键操作通过统一账号标识进行审计关联。' },
+  { icon: <CloudServerOutlined />, title: '系统可扩展', desc: '后续新增业务系统可直接复用当前认证入口与 Token 体系。' },
+]
+
+// 授权页面展示的权限项
+const oauthScopes = [
+  { icon: <UserOutlined />, label: '读取你的账号信息（用户名、角色）' },
+  { icon: <ApiOutlined />, label: '以你的身份调用业务 API' },
+  { icon: <CheckCircleOutlined />, label: '获取一次性授权码用于 Token 兑换' },
+]
+
+function AuthorizeView({ user, clientName, redirectTarget, rawState, onAuthorize, onDeny, loading }) {
+  const appName = clientName || '第三方应用'
+  const redirectHost = (() => {
+    try { return new URL(redirectTarget.target).hostname } catch { return redirectTarget.target }
+  })()
+
+  return (
+    <div className="auth-unified-page min-h-screen flex items-center justify-center px-4 py-10">
+      <div className="auth-unified-orb auth-unified-orb-a" />
+      <div className="auth-unified-orb auth-unified-orb-b" />
+      <div className="auth-unified-orb auth-unified-orb-c" />
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="auth-unified-right rounded-3xl p-8">
+
+          {/* App identity */}
+          <div className="flex flex-col items-center text-center mb-7">
+            <div className="flex items-center gap-3 mb-5">
+              {/* requesting app avatar */}
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-indigo-200">
+                <ApiOutlined style={{ color: '#fff', fontSize: 24 }} />
+              </div>
+              <div className="auth-oauth-arrow">
+                <svg width="32" height="16" viewBox="0 0 32 16" fill="none">
+                  <path d="M0 8h28M22 2l8 6-8 6" stroke="#a5b4fc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              {/* EasyDB avatar */}
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-200">
+                <DatabaseOutlined style={{ color: '#fff', fontSize: 24 }} />
+              </div>
+            </div>
+
+            <Typography.Title level={4} style={{ color: '#1e293b', marginBottom: 4, marginTop: 0 }}>
+              授权 {appName}
+            </Typography.Title>
+            <div className="text-sm text-slate-500">
+              <span className="font-medium text-indigo-600">{appName}</span> 请求访问你在 EasyDB 的账号
+            </div>
+          </div>
+
+          {/* Logged-in user hint */}
+          <div className="auth-oauth-user-row mb-5">
+            <Avatar size={28} icon={<UserOutlined />} style={{ background: '#e0e7ff', color: '#4f46e5' }} />
+            <div className="text-sm text-slate-600">
+              当前登录：<span className="font-semibold text-slate-800">{user?.username || user?.name || '未知用户'}</span>
+            </div>
+            <Tag color="green" style={{ marginLeft: 'auto', fontSize: 11 }}>已认证</Tag>
+          </div>
+
+          {/* Scopes */}
+          <div className="mb-6">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">授权内容</div>
+            <div className="grid gap-2">
+              {oauthScopes.map((s) => (
+                <div key={s.label} className="auth-oauth-scope-row">
+                  <CheckCircleOutlined style={{ color: '#6366f1', fontSize: 14, flexShrink: 0 }} />
+                  <span className="text-sm text-slate-600">{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Redirect hint */}
+          <div className="auth-path-badge mb-6 text-xs">
+            授权后将回跳至：<span>{redirectHost}</span>
+          </div>
+
+          {/* Actions */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              block
+              size="large"
+              onClick={onDeny}
+              disabled={loading}
+              style={{ borderRadius: 10, height: 44 }}
+            >
+              拒绝
+            </Button>
+            <Button
+              type="primary"
+              block
+              size="large"
+              loading={loading}
+              onClick={onAuthorize}
+              style={{ borderRadius: 10, height: 44 }}
+            >
+              授权并继续
+            </Button>
+          </div>
+
+          <div className="mt-4 text-center text-xs text-slate-400">
+            授权后，{appName} 将获得一次性授权码，有效期 5 分钟
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LoginPage() {
-  const { login, request } = useConsole()
+  const { login, request, token, user } = useConsole()
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(false)
@@ -48,15 +160,43 @@ function LoginPage() {
   const redirectTarget = useMemo(() => parseRedirectTarget(query.get('redirect')), [query])
   const rawState = useMemo(() => sanitizeState(query.get('state')), [query])
   const fallbackPath = location.state?.from?.pathname || '/app/projects'
-
   const from = redirectTarget.mode === 'internal' ? redirectTarget.target || fallbackPath : fallbackPath
   const targetLabel = clientName || (redirectTarget.mode === 'external' ? '业务系统' : 'EasyDB 控制台')
 
-  const trustedApps = [
-    { icon: <CloudServerOutlined />, title: '管理控制台', desc: '项目、环境与网关配置管理' },
-    { icon: <ApiOutlined />, title: '业务 API 平台', desc: '统一接口调用与密钥授权' },
-    { icon: <AuditOutlined />, title: '审计中心', desc: '操作轨迹与风险追踪' },
-  ]
+  // 已登录 + 外部跳转 → 授权页
+  const isAuthorizeMode = !!(token && user && redirectTarget.mode === 'external')
+
+  const doAuthorize = async () => {
+    setLoading(true)
+    try {
+      const payload = await request('/api/auth/authorize', {
+        method: 'POST',
+        body: {
+          client: clientName || 'business-web',
+          redirect: redirectTarget.target,
+          state: rawState,
+        },
+      })
+      if (!payload.redirectTo) throw new Error('授权回跳地址生成失败')
+      message.success('授权成功，正在跳转...')
+      window.location.href = payload.redirectTo
+    } catch (err) {
+      message.error(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const doDeny = () => {
+    try {
+      const url = new URL(redirectTarget.target)
+      url.searchParams.set('error', 'access_denied')
+      if (rawState) url.searchParams.set('state', rawState)
+      window.location.href = url.toString()
+    } catch {
+      navigate('/app/projects', { replace: true })
+    }
+  }
 
   const onFinish = async (values) => {
     setLoading(true)
@@ -73,14 +213,11 @@ function LoginPage() {
             state: rawState,
           },
         })
-        if (!payload.redirectTo) {
-          throw new Error('认证回跳地址生成失败')
-        }
+        if (!payload.redirectTo) throw new Error('认证回跳地址生成失败')
         message.success(`登录成功，正在返回 ${targetLabel}。`)
         window.location.href = payload.redirectTo
         return
       }
-
       await login(values)
       message.success(`登录成功，正在进入 ${targetLabel}。`)
       navigate(from, { replace: true })
@@ -91,109 +228,127 @@ function LoginPage() {
     }
   }
 
+  if (isAuthorizeMode) {
+    return (
+      <AuthorizeView
+        user={user}
+        clientName={clientName}
+        redirectTarget={redirectTarget}
+        rawState={rawState}
+        onAuthorize={doAuthorize}
+        onDeny={doDeny}
+        loading={loading}
+      />
+    )
+  }
+
   return (
-    <div className="auth-unified-page min-h-screen px-4 py-8 md:px-8 md:py-12">
+    <div className="auth-unified-page min-h-screen flex items-center px-4 py-10 md:px-8">
       <div className="auth-unified-orb auth-unified-orb-a" />
       <div className="auth-unified-orb auth-unified-orb-b" />
-      <div className="mx-auto grid max-w-6xl items-stretch gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="auth-unified-left rounded-3xl p-7 md:p-9">
-          <Space size={8} wrap>
-            <Tag color="blue">UNIFIED AUTH</Tag>
-            <Tag color="geekblue">ONE SIGN-IN</Tag>
-            <Tag color="cyan">TOKEN SHARED</Tag>
-          </Space>
-          <Typography.Title level={2} className="!mb-2 !mt-4 !text-slate-900">
+      <div className="auth-unified-orb auth-unified-orb-c" />
+
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl items-stretch gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+
+        {/* ── Left: Brand & Features ── */}
+        <section className="auth-unified-left rounded-3xl p-8 md:p-10 flex flex-col">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
+              <DatabaseOutlined style={{ color: '#fff', fontSize: 18 }} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-800 leading-none">EasyDB</div>
+              <div className="text-xs text-slate-400 mt-0.5">Unified Auth Gateway</div>
+            </div>
+            <div className="ml-auto flex gap-1.5">
+              <Tag color="blue" style={{ fontSize: 10, padding: '0 6px', margin: 0 }}>SSO</Tag>
+              <Tag color="purple" style={{ fontSize: 10, padding: '0 6px', margin: 0 }}>JWT</Tag>
+            </div>
+          </div>
+
+          <Typography.Title level={2} style={{ color: '#1e293b', marginBottom: 8, marginTop: 0 }}>
             统一认证中心
           </Typography.Title>
-          <Typography.Paragraph className="!mb-0 !text-slate-600 !leading-relaxed">
-            一个入口登录后，统一访问管理控制台、业务 API 与审计模块。认证票据全局复用，减少重复登录与多套账号维护成本。
+          <Typography.Paragraph style={{ color: '#64748b', lineHeight: 1.7, marginBottom: 0 }}>
+            一个入口登录，统一访问管理控制台、业务 API 与审计模块。认证票据全局复用，减少重复登录与多套账号维护成本。
           </Typography.Paragraph>
 
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
             {trustedApps.map((app) => (
-              <Card key={app.title} size="small" className="auth-surface-card h-full">
-                <div className="text-base text-blue-700">{app.icon}</div>
-                <Typography.Text strong className="mt-2 block">
-                  {app.title}
-                </Typography.Text>
-                <div className="mt-1 text-sm text-slate-500">{app.desc}</div>
-              </Card>
+              <div key={app.title} className="auth-surface-card rounded-2xl p-4">
+                <div style={{ color: '#6366f1', fontSize: 18 }}>{app.icon}</div>
+                <div className="mt-2 text-sm font-semibold text-slate-700">{app.title}</div>
+                <div className="mt-1 text-xs text-slate-500">{app.desc}</div>
+              </div>
             ))}
           </div>
 
-          <div className="mt-7 grid gap-3">
-            <div className="auth-policy-row">
-              <DatabaseOutlined className="mt-1 text-blue-700" />
-              <div>
-                <Typography.Text strong>策略统一</Typography.Text>
-                <div className="text-sm text-slate-500">统一校验 JWT 签发方与受众，避免跨系统误用票据。</div>
+          <div className="mt-5 grid gap-2.5 flex-1">
+            {policies.map((p) => (
+              <div key={p.title} className="auth-policy-row">
+                <div style={{ color: '#6366f1', fontSize: 16, marginTop: 1 }}>{p.icon}</div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-700">{p.title}</div>
+                  <div className="text-xs mt-0.5 text-slate-500">{p.desc}</div>
+                </div>
               </div>
-            </div>
-            <div className="auth-policy-row">
-              <SafetyCertificateOutlined className="mt-1 text-blue-700" />
-              <div>
-                <Typography.Text strong>鉴权可追溯</Typography.Text>
-                <div className="text-sm text-slate-500">所有关键操作通过统一账号标识进行审计关联。</div>
-              </div>
-            </div>
-            <div className="auth-policy-row">
-              <CloudServerOutlined className="mt-1 text-blue-700" />
-              <div>
-                <Typography.Text strong>系统可扩展</Typography.Text>
-                <div className="text-sm text-slate-500">后续新增业务系统可直接复用当前认证入口与 Token 体系。</div>
-              </div>
-            </div>
+            ))}
+          </div>
+
+          <div className="mt-6 text-xs text-slate-400">
+            © 2026 EasyDB · 企业级 SQL 网关平台
           </div>
         </section>
 
-        <Card className="auth-unified-right rounded-3xl">
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <div>
-              <Typography.Title level={4} className="!mb-1 !text-slate-900">
-                账号认证
-              </Typography.Title>
-              <Typography.Text type="secondary">登录后将进入 {targetLabel}。</Typography.Text>
+        {/* ── Right: Login Form ── */}
+        <div className="auth-unified-right rounded-3xl p-8 md:p-10 flex flex-col justify-center">
+          <div className="mb-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs text-indigo-600 mb-4">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              安全连接已建立
             </div>
+            <Typography.Title level={3} style={{ color: '#1e293b', marginBottom: 4, marginTop: 0 }}>
+              账号认证
+            </Typography.Title>
+            <div className="text-sm text-slate-500">
+              登录后将进入 <span className="text-indigo-600 font-medium">{targetLabel}</span>
+            </div>
+          </div>
+
+          {redirectTarget.mode === 'invalid' && (
             <Alert
               showIcon
-              type={redirectTarget.mode === 'invalid' ? 'warning' : 'info'}
-              message={
-                redirectTarget.mode === 'external'
-                  ? `认证成功后将回跳至 ${redirectTarget.target}`
-                  : redirectTarget.mode === 'invalid'
-                    ? 'redirect 参数无效，登录后将进入控制台首页'
-                    : `认证成功后自动跳转至 ${from}`
-              }
+              type="warning"
+              message="redirect 参数无效，登录后将进入控制台首页"
+              style={{ marginBottom: 20, borderRadius: 10 }}
             />
+          )}
 
-            <Form layout="vertical" onFinish={onFinish} className="mt-1">
-              <Form.Item
-                label="统一账号"
-                name="username"
-                rules={[{ required: true, message: '请输入用户名' }]}
-              >
-                <Input size="large" prefix={<UserOutlined />} autoComplete="username" />
-              </Form.Item>
+          <Form layout="vertical" onFinish={onFinish}>
+            <Form.Item
+              label="统一账号"
+              name="username"
+              rules={[{ required: true, message: '请输入用户名' }]}
+            >
+              <Input size="large" prefix={<UserOutlined />} placeholder="请输入用户名" autoComplete="username" style={{ borderRadius: 10 }} />
+            </Form.Item>
+            <Form.Item
+              label="登录密码"
+              name="password"
+              rules={[{ required: true, message: '请输入密码' }]}
+            >
+              <Input.Password size="large" prefix={<LockOutlined />} placeholder="请输入密码" autoComplete="current-password" style={{ borderRadius: 10 }} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" block size="large" loading={loading} style={{ borderRadius: 10, height: 44, marginTop: 4 }}>
+              认证并继续
+            </Button>
+          </Form>
 
-              <Form.Item
-                label="登录密码"
-                name="password"
-                rules={[{ required: true, message: '请输入密码' }]}
-              >
-                <Input.Password size="large" prefix={<LockOutlined />} placeholder="请输入密码" autoComplete="current-password" />
-              </Form.Item>
-
-              <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-                认证并继续
-              </Button>
-            </Form>
-
-            <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-slate-600">
-              当前接入路径：
-              <span className="font-medium text-slate-800"> {redirectTarget.mode === 'external' ? '/api/auth/authorize' : '/api/auth/login'}</span>
-            </div>
-          </Space>
-        </Card>
+          <div className="auth-path-badge mt-5">
+            当前接入路径：
+            <span>{redirectTarget.mode === 'external' ? '/api/auth/authorize' : '/api/auth/login'}</span>
+          </div>
+        </div>
       </div>
     </div>
   )

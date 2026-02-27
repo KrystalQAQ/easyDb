@@ -19,7 +19,8 @@
       "Bash(taskkill:*)",
       "Bash(powershell:*)",
       "Bash(netstat:*)",
-      "mcp__db__execute_query"
+      "mcp__db__execute_query",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

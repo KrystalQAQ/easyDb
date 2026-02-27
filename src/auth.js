@@ -103,11 +103,43 @@ async function authorize(req, res) {
     redirect = "",
     state = "",
   } = parsed.payload || {};
-  if (!username || !password) {
-    return res.status(400).json({ ok: false, error: "用户名和密码不能为空" });
-  }
+
   if (!redirect) {
     return res.status(400).json({ ok: false, error: "redirect 不能为空" });
+  }
+
+  // 已登录模式：请求头携带有效 Bearer Token，无需再验证密码
+  const authHeader = req.headers.authorization || "";
+  if (authHeader.startsWith("Bearer ")) {
+    const bearerToken = authHeader.slice("Bearer ".length).trim();
+    const verifyOptions = {};
+    if (jwtIssuer) verifyOptions.issuer = jwtIssuer;
+    if (jwtAudience) verifyOptions.audience = jwtAudience;
+    let jwtPayload;
+    try {
+      jwtPayload = jwt.verify(bearerToken, jwtSecret, verifyOptions);
+    } catch (_err) {
+      return res.status(401).json({ ok: false, error: "Token 无效或已过期，请重新登录" });
+    }
+    const tokenUser = { username: jwtPayload.sub || jwtPayload.username || "", role: jwtPayload.role || "" };
+    let issued;
+    try {
+      issued = issueAuthCode({ token: bearerToken, user: tokenUser, client, redirect, state });
+    } catch (err) {
+      return res.status(400).json({ ok: false, error: err.message });
+    }
+    return res.json({
+      ok: true,
+      code: issued.code,
+      codeExpiresInSeconds: authCode.ttlSeconds,
+      redirectTo: buildAuthorizeRedirectUrl(redirect, { code: issued.code, state: String(state || "").trim() }),
+      user: tokenUser,
+    });
+  }
+
+  // 未登录模式：用 username + password 验证
+  if (!username || !password) {
+    return res.status(400).json({ ok: false, error: "用户名和密码不能为空" });
   }
 
   const verified = await verifyUserCredentials(username, password);
