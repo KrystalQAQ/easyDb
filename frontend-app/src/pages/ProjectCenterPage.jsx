@@ -446,11 +446,11 @@ function ProjectCenterPage() {
       await request(
         `/api/platform/projects/${encodeURIComponent(projectKey)}/envs/${encodeURIComponent(fixedEnv)}/nginx`,
         {
-        method: 'PUT',
-        body: {
-          confText: nginxConfText,
+          method: 'PUT',
+          body: {
+            confText: nginxConfText,
+          },
         },
-      },
       )
       await loadNginx(projectKey, fixedEnv)
       message.success('Nginx 配置已保存。')
@@ -744,11 +744,9 @@ function ProjectCenterPage() {
 
       <Card>
         <Typography.Title level={5} className="!mb-1">
-          项目 API 信息（给前端联调）
+          项目 API 信息
         </Typography.Title>
-        <Typography.Text type="secondary">
-          以下地址按当前项目环境对应域名生成，业务前端只调用固定接口：/api/auth/login、/api/auth/me、/api/sql、/api/health。
-        </Typography.Text>
+ 
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <Form layout="vertical">
@@ -817,7 +815,7 @@ function ProjectCenterPage() {
             {nginxPath ? <Tag>文件：{nginxPath}</Tag> : null}
             {nginxFrontendDir ? <Tag color="blue">前端目录：{nginxFrontendDir}</Tag> : null}
           </div>
-          <Form.Item label="Nginx 配置（可编辑，保存后可一键重载）">
+          <Form.Item label="Nginx 配置">
             <Input.TextArea
               value={nginxConfText}
               onChange={(event) => setNginxConfText(event.target.value)}
@@ -842,7 +840,7 @@ function ProjectCenterPage() {
         </Form>
       </Card>
 
- 
+
       <Modal
         title="创建项目"
         open={createOpen}

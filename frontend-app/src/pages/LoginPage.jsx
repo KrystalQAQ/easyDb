@@ -93,7 +93,7 @@ function LoginPage() {
                 name="username"
                 rules={[{ required: true, message: '请输入用户名' }]}
               >
-                <Input size="large" prefix={<UserOutlined />} placeholder="admin" autoComplete="username" />
+                <Input size="large" prefix={<UserOutlined />} autoComplete="username" />
               </Form.Item>
 
               <Form.Item
