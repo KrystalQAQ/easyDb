@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Layout, Menu, Select, Space, Tag, Typography, message } from 'antd'
+import { Button, Layout, Menu, Select, Tag, Tooltip, Typography, message } from 'antd'
 import {
   ApiOutlined,
   AuditOutlined,
@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useConsole } from '../context/ConsoleContext'
+import AvatarUploader from '../components/AvatarUploader'
 
 const { Header, Sider, Content } = Layout
 
@@ -27,7 +28,7 @@ const menuItems = [
 function ConsoleLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { token, user, request, projectKey, env, logout, updateGatewayContext } = useConsole()
+  const { token, user, request, projectKey, env, logout, updateGatewayContext, verifyMe, uploadAvatar } = useConsole()
   const fixedEnv = 'prod'
   const [collapsed, setCollapsed] = useState(false)
   const [projectLoading, setProjectLoading] = useState(false)
@@ -64,6 +65,11 @@ function ConsoleLayout() {
   useEffect(() => {
     void loadProjects()
   }, [loadProjects])
+
+  useEffect(() => {
+    if (token) void verifyMe().catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (env !== fixedEnv) {
@@ -153,8 +159,17 @@ function ConsoleLayout() {
               <Button icon={<ReloadOutlined />} loading={projectLoading} onClick={() => void loadProjects()}>
                 同步项目
               </Button>
-              <Tag color="geekblue">管理员：{user?.username || '-'}</Tag>
-              <Tag color="cyan">角色：{user?.role || '-'}</Tag>
+              <Tooltip title={`${user?.username || '-'} · ${user?.role || '-'}`} placement="bottom">
+                <div style={{ cursor: 'default' }}>
+                  <AvatarUploader
+                    current={user?.avatar || null}
+                    username={user?.username || '?'}
+                    size={34}
+                    onSave={uploadAvatar}
+                  />
+                </div>
+              </Tooltip>
+              <span className="text-sm text-slate-600 font-medium">{user?.username || '-'}</span>
               <Button danger icon={<LogoutOutlined />} onClick={logout}>
                 退出
               </Button>

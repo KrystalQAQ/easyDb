@@ -7,21 +7,20 @@ const definition = {
     type: "object",
     properties: {
       projectKey: { type: "string", description: "项目标识" },
-      env: { type: "string", description: "环境标识，默认 prod", default: "prod" },
+      env: { type: "string", description: "环境标识，默认 prod" },
       apiKey: { type: "string", description: "要测试的接口标识" },
-      params: { type: "object", description: "测试参数，键值对，例如 { userId: 1, limit: 5 }" },
+      params: { type: "object", description: "测试参数，例如 { userId: 1, limit: 5 }" },
     },
     required: ["projectKey", "apiKey"],
   },
 };
 
 async function handler({ projectKey, env = "prod", apiKey, params = {} }) {
-  const data = await apiRequest(
+  return apiRequest(
     "POST",
     `/api/platform/projects/${projectKey}/envs/${env}/apis/${apiKey}/test`,
     { params },
   );
-  return data;
 }
 
 module.exports = { definition, handler };

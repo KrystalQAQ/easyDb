@@ -7,7 +7,7 @@ const definition = {
     type: "object",
     properties: {
       projectKey: { type: "string", description: "项目标识" },
-      env: { type: "string", description: "环境标识，默认 prod", default: "prod" },
+      env: { type: "string", description: "环境标识，默认 prod" },
       apiKey: { type: "string", description: "要更新的接口标识" },
       name: { type: "string" },
       groupKey: { type: "string" },
@@ -26,12 +26,7 @@ const definition = {
 };
 
 async function handler({ projectKey, env = "prod", apiKey, ...body }) {
-  const data = await apiRequest(
-    "PUT",
-    `/api/platform/projects/${projectKey}/envs/${env}/apis/${apiKey}`,
-    body,
-  );
-  return data;
+  return apiRequest("PUT", `/api/platform/projects/${projectKey}/envs/${env}/apis/${apiKey}`, body);
 }
 
 module.exports = { definition, handler };

@@ -1,25 +1,23 @@
 /**
- * EasyDB platform API 的轻量 HTTP 客户端
- * 从环境变量读取 base URL 和 admin token
+ * EasyDB HTTP client
+ * Reads EASYDB_BASE_URL and EASYDB_API_KEY from environment
  */
 
 const BASE_URL = (process.env.EASYDB_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
-const TOKEN = process.env.EASYDB_TOKEN || "";
+const API_KEY = process.env.EASYDB_API_KEY || "";
 
-if (!TOKEN) {
-  process.stderr.write("[easydb-mcp] 警告: EASYDB_TOKEN 未设置，所有请求将被拒绝\n");
+if (!API_KEY) {
+  process.stderr.write("[easydb-mcp] WARNING: EASYDB_API_KEY is not set\n");
 }
 
 async function apiRequest(method, path, body) {
   const url = `${BASE_URL}${path}`;
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${TOKEN}`,
-  };
-
   const res = await fetch(url, {
     method,
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Api-Key": API_KEY,
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
@@ -28,7 +26,7 @@ async function apiRequest(method, path, body) {
   try {
     json = JSON.parse(text);
   } catch {
-    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
   }
 
   if (!res.ok || json.ok === false) {

@@ -163,7 +163,7 @@ function ConsoleProvider({ children }) {
       updateApiBase,
       updateGatewayContext,
     }),
-    [state, request, login, verifyMe, logout, updateApiBase, updateGatewayContext],
+    [state, request, login, verifyMe, uploadAvatar, logout, updateApiBase, updateGatewayContext],
   )
 
   return <ConsoleContext.Provider value={value}>{children}</ConsoleContext.Provider>
