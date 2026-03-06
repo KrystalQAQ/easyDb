@@ -454,6 +454,7 @@ function createPlatformRoutes() {
 
   router.post(
     "/projects/:projectKey/envs/:env/deploy",
+    authenticateAdminOrApiKey,
     upload.single("file"),
     async (req, res) => {
       const projectKey = normalizeProjectKey(req.params.projectKey);
