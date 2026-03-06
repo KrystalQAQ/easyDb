@@ -6,16 +6,19 @@ const definition = {
   inputSchema: {
     type: "object",
     properties: {
-      projectKey: { type: "string", description: "项目标识" },
-      env: { type: "string", description: "环境标识，默认 prod" },
       apiKey: { type: "string", description: "要测试的接口标识" },
       params: { type: "object", description: "测试参数，例如 { userId: 1, limit: 5 }" },
     },
-    required: ["projectKey", "apiKey"],
+    required: ["apiKey"],
   },
 };
 
-async function handler({ projectKey, env = "prod", apiKey, params = {} }) {
+async function handler({ apiKey, params = {} }) {
+  const projectKey = process.env.EASYDB_PROJECT;
+  const env = process.env.EASYDB_ENV || "prod";
+
+  if (!projectKey) throw new Error("缺少 EASYDB_PROJECT 环境变量");
+
   return apiRequest(
     "POST",
     `/api/platform/projects/${projectKey}/envs/${env}/apis/${apiKey}/test`,

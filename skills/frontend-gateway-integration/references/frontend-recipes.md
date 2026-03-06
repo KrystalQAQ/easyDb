@@ -105,6 +105,35 @@ async function exchangeTokenByCode(code, client) {
 
 业务 API 通过 EasyDB MCP 工具预先定义，前端直接按 `/api/<apiKey>` 调用。
 
+### 参数传递规则（重要）
+
+**GET 请求** → 参数放在 URL query string：
+```js
+GET /api/get-users?limit=100&offset=0
+```
+
+**POST/PUT/DELETE 请求** → 参数必须包在 `params` 对象中：
+```js
+POST /api/get-users
+{
+  "params": {
+    "limit": 100,
+    "offset": 0
+  }
+}
+```
+
+❌ **错误示例**（POST 直接传参数会报"缺少必要参数"）：
+```js
+POST /api/get-users
+{
+  "limit": 100,
+  "offset": 0
+}
+```
+
+### 封装函数
+
 ```js
 async function callApi(apiKey, params = {}, { method = 'POST', token } = {}) {
   const headers = { 'Content-Type': 'application/json' }
@@ -117,7 +146,7 @@ async function callApi(apiKey, params = {}, { method = 'POST', token } = {}) {
     const qs = new URLSearchParams(params).toString()
     if (qs) url += `?${qs}`
   } else {
-    // 业务接口参数需要包在 params 字段中
+    // POST/PUT/DELETE: 参数必须包在 params 字段中
     body = JSON.stringify({ params })
   }
 
@@ -132,13 +161,17 @@ async function callApi(apiKey, params = {}, { method = 'POST', token } = {}) {
 }
 ```
 
-使用示例：
-```js
-// 调用预定义的 get-user-list 接口
-const result = await callApi('get-user-list', { status: 'active', limit: 10 }, { token })
-console.log(result.data) // [{ id: 1, name: '张三' }, ...]
+### 使用示例
 
-// 调用公开接口（无需 token）
+```js
+// GET 请求（参数自动转为 query string）
+const result1 = await callApi('get-users', { limit: 100, offset: 0 }, { method: 'GET', token })
+
+// POST 请求（参数自动包装为 { params: {...} }）
+const result2 = await callApi('get-user-list', { status: 'active', limit: 10 }, { token })
+console.log(result2.data) // [{ id: 1, name: '张三' }, ...]
+
+// 公开接口（无需 token）
 const publicResult = await callApi('get-public-notice', { page: 1 })
 ```
 

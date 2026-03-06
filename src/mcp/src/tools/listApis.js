@@ -6,15 +6,18 @@ const definition = {
   inputSchema: {
     type: "object",
     properties: {
-      projectKey: { type: "string", description: "项目标识" },
-      env: { type: "string", description: "环境标识，默认 prod" },
       groupKey: { type: "string", description: "按分组筛选，为空则返回全部" },
     },
-    required: ["projectKey"],
+    required: [],
   },
 };
 
-async function handler({ projectKey, env = "prod", groupKey }) {
+async function handler({ groupKey }) {
+  const projectKey = process.env.EASYDB_PROJECT;
+  const env = process.env.EASYDB_ENV || "prod";
+
+  if (!projectKey) throw new Error("缺少 EASYDB_PROJECT 环境变量");
+
   const qs = groupKey ? `?groupKey=${groupKey}` : "";
   return apiRequest("GET", `/api/platform/projects/${projectKey}/envs/${env}/apis${qs}`);
 }

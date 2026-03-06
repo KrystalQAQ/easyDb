@@ -39,6 +39,15 @@ function createGatewayApiRoutes({ sqlRateLimiter }) {
       return res.status(404).json({ ok: false, error: "接口不存在" });
     }
 
+    // 校验 HTTP 方法
+    const allowedMethod = (apiDef.method || "POST").toUpperCase();
+    if (req.method !== allowedMethod) {
+      return res.status(405).json({
+        ok: false,
+        error: `此接口仅支持 ${allowedMethod} 请求`
+      });
+    }
+
     // authMode=token 时必须有有效 token
     if (apiDef.authMode === "token" && req._noAuthToken) {
       return res.status(401).json({ ok: false, error: "此接口需要身份认证" });

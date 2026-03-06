@@ -20,7 +20,12 @@
       "Bash(powershell:*)",
       "Bash(netstat:*)",
       "mcp__db__execute_query",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__easydb__easydb_list_apis",
+      "mcp__easydb__easydb_update_api",
+      "Bash(npm install)",
+      "Bash(pnpm install)",
+      "Bash(npm config get registry)"
     ]
   }
 }

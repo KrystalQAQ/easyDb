@@ -6,10 +6,8 @@ const definition = {
   inputSchema: {
     type: "object",
     properties: {
-      projectKey: { type: "string", description: "项目标识" },
-      env: { type: "string", description: "环境标识，默认 prod" },
-      apiKey: { type: "string", description: "接口唯一标识，例如 get-user-orders" },
-      name: { type: "string", description: "接口名称，例如 查询用户订单" },
+      apiKey: { type: "string", description: "接口唯一标识，如 get-user-list" },
+      name: { type: "string", description: "接口名称，如 获取用户列表" },
       groupKey: { type: "string", description: "所属分组标识（可选）" },
       method: { type: "string", enum: ["GET", "POST", "PUT", "DELETE"], description: "HTTP 方法，默认 POST" },
       path: { type: "string", description: "自定义路径（可选）" },
@@ -37,11 +35,16 @@ const definition = {
       cacheTTL: { type: "integer", description: "缓存秒数，0 表示不缓存" },
       authMode: { type: "string", enum: ["token", "public"], description: "鉴权模式，默认 token" },
     },
-    required: ["projectKey", "apiKey", "name", "sqlTemplate", "sqlType"],
+    required: ["apiKey", "name", "sqlTemplate", "sqlType"],
   },
 };
 
-async function handler({ projectKey, env = "prod", ...body }) {
+async function handler(body) {
+  const projectKey = process.env.EASYDB_PROJECT;
+  const env = process.env.EASYDB_ENV || "prod";
+
+  if (!projectKey) throw new Error("缺少 EASYDB_PROJECT 环境变量");
+
   return apiRequest("POST", `/api/platform/projects/${projectKey}/envs/${env}/apis`, {
     method: "POST",
     authMode: "token",

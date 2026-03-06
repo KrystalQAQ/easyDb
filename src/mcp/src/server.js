@@ -24,6 +24,7 @@ const tools = [
   require("./tools/createApi"),
   require("./tools/updateApi"),
   require("./tools/testApi"),
+  require("./tools/deployFrontend"),
 ];
 
 // 从环境变量读取默认 project/env，注入到每次调用

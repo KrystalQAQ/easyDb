@@ -6,15 +6,18 @@ const definition = {
   inputSchema: {
     type: "object",
     properties: {
-      projectKey: { type: "string", description: "项目标识，例如 crm" },
-      env: { type: "string", description: "环境标识，默认 prod" },
       table: { type: "string", description: "指定表名，为空则返回所有表" },
     },
-    required: ["projectKey"],
+    required: [],
   },
 };
 
-async function handler({ projectKey, env = "prod", table }) {
+async function handler({ table }) {
+  const projectKey = process.env.EASYDB_PROJECT;
+  const env = process.env.EASYDB_ENV || "prod";
+
+  if (!projectKey) throw new Error("缺少 EASYDB_PROJECT 环境变量");
+
   const path = table
     ? `/api/platform/projects/${projectKey}/envs/${env}/schema/${table}`
     : `/api/platform/projects/${projectKey}/envs/${env}/schema`;
