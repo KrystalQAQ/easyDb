@@ -42,16 +42,17 @@ function validateApiParams(rawParams, paramsSchema) {
   }
 
   for (const schema of paramsSchema) {
-    const { name, type = "string", required, default: defaultValue } = schema;
+    const { name, type = "string", required, default: defaultValue, defaultValue: dv } = schema;
     let value = input[name];
+    const finalDefault = defaultValue !== undefined ? defaultValue : dv;
 
     if (value === undefined || value === null || value === "") {
       if (required) {
         errors.push(`参数 ${name} 是必填项`);
         continue;
       }
-      if (defaultValue !== undefined) {
-        value = defaultValue;
+      if (finalDefault !== undefined) {
+        value = finalDefault;
       } else {
         continue;
       }
