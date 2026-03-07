@@ -16,7 +16,7 @@
 ```bash
 cd src/mcp
 npm install
-chmod +x deploy-server.js
+chmod +x bin/easydb-mcp
 ```
 
 ## 配置 MCP 客户端
@@ -28,7 +28,7 @@ chmod +x deploy-server.js
   "mcpServers": {
     "easydb-deploy": {
       "command": "node",
-      "args": ["d:/workspace/tanyu/easyDb/src/mcp/deploy-server.js"],
+      "args": ["--import", "tsx", "d:/workspace/tanyu/easyDb/src/mcp/deploy-server.ts"],
       "disabled": false
     }
   }

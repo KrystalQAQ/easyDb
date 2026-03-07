@@ -10,16 +10,19 @@
   ],
   "license": "MIT",
   "type": "commonjs",
-  "main": "src/server.js",
+  "main": "src/server.ts",
   "bin": {
-    "easydb-mcp": "src/server.js"
+    "easydb-mcp": "bin/easydb-mcp"
   },
   "scripts": {
+    "start": "node --import tsx src/server.ts",
+    "typecheck": "tsc -p tsconfig.json",
     "adduser": "npm adduser --registry=https://registry.npmjs.org",
     "publish": "npm publish"
   },
   "files": [
-    "src"
+    "src",
+    "bin"
   ],
   "engines": {
     "node": ">=18"
@@ -28,7 +31,12 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "adm-zip": "^0.5.16",
     "form-data": "^4.0.1",
+    "tsx": "^4.20.5",
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.4.0",
+    "typescript": "^5.6.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

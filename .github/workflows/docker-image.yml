@@ -1,6 +1,19 @@
-name: Docker Image
+name: Docker Release
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/docker-image.yml"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "src/**"
+      - "scripts/**"
+      - "nginx/**"
+      - "docker/**"
+      - "deploy/**"
+      - "frontend-app/**"
   push:
     branches:
       - main
@@ -8,14 +21,74 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "额外镜像标签，例如 staging"
+        required: false
+        type: string
+
+concurrency:
+  group: docker-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10.30.3"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/easydb
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
-  build-and-push:
+  verify:
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Restore frontend pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend-app/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend-app install --frozen-lockfile
+
+      - name: Typecheck
+        run: npm run typecheck:all
+
+      - name: Lint frontend
+        run: pnpm --dir frontend-app lint
+
+      - name: Build frontend
+        run: pnpm --dir frontend-app build
+
+  build-and-push:
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout
@@ -34,48 +107,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Gateway Docker metadata
-        id: meta-gateway
+      - name: Extract EasyDB Docker metadata
+        id: meta-easydb
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/gateway
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
-            type=sha
+            type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.image_tag }},enable=${{ github.event_name == 'workflow_dispatch' && inputs.image_tag != '' }}
 
-      - name: Build and push Gateway image
+      - name: Build and push EasyDB image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta-gateway.outputs.tags }}
-          labels: ${{ steps.meta-gateway.outputs.labels }}
+          tags: ${{ steps.meta-easydb.outputs.tags }}
+          labels: ${{ steps.meta-easydb.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract Nginx Docker metadata
-        id: meta-nginx
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/nginx
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Nginx image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./nginx/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta-nginx.outputs.tags }}
-          labels: ${{ steps.meta-nginx.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Publish deployment summary
+        env:
+          IMAGE_VERSION: ${{ steps.meta-easydb.outputs.version }}
+        run: |
+          echo "## EasyDB Docker 发布完成" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "- 镜像仓库: ${IMAGE_NAME}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 主标签: ${IMAGE_VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "### 快速部署" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "EASYDB_IMAGE=${IMAGE_NAME}:${IMAGE_VERSION} ./deploy/easydb.sh install" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "### 仅生成部署命令" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "EASYDB_IMAGE=${IMAGE_NAME}:${IMAGE_VERSION} ./deploy/easydb.sh command install" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

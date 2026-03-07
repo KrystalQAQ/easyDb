@@ -6,6 +6,3 @@ logs
 .env
 .env.*
 !*.example
-*.md
-frontend-app
-deploy

@@ -16,6 +16,53 @@
 - 推荐所有新客户端走该前缀。
 - 登录只做一次，不再区分作用域 token。
 
+## 1.1 v2 并行接口（可直接切流）
+
+前缀：`/api/v2`
+
+- `POST /auth/login`
+- `POST /auth/authorize`
+- `POST /auth/token`
+- `GET /auth/me`
+- `PUT /auth/me/avatar`
+- `GET /projects`
+- `POST /projects`
+- `DELETE /projects/:projectKey`
+- `GET /projects/:projectKey/envs`
+- `GET /projects/:projectKey/envs/:env`
+- `PUT /projects/:projectKey/envs/:env`
+- `GET /system/settings`
+- `PUT /system/settings/:settingKey`
+
+说明：
+
+- v2 与 v1 并行发布，v1 仍保持可用。
+- 控制面全量接口已支持 v2 前缀迁移：将 `/api/platform/...` 替换为 `/api/v2/...` 即可。
+- 例如：`/api/platform/projects/:projectKey/envs/:env/apis` → `/api/v2/projects/:projectKey/envs/:env/apis`。
+
+## 1.2 初始化引导接口（无鉴权）
+
+前缀：`/api/system/bootstrap`
+
+- `GET /status`：读取当前初始化状态（是否已配置数据库、是否已完成初始化）
+- `POST /config`：提交数据库连接并触发初始化
+- `POST /reset`：重置引导配置（删除 `bootstrap-db.json`，请求体需 `{"confirm":"RESET"}`）
+
+说明：
+
+- 当平台未初始化时，除引导接口外的 `/api/*` 会返回 `503 bootstrap_required`。
+- 前端控制台会自动跳转 `/setup`，引导用户填写数据库连接信息。
+- `POST /config` 在新库场景会自动初始化系统表，并在响应中返回 `initReport` 与提示文案。
+
+## 1.3 内网无域名路径模式（Nginx）
+
+当无法使用三级域名时，可通过路径前缀区分项目与环境：
+
+- 业务前端：`/p/:projectKey/:env/`
+- 业务 SQL：`POST /p/:projectKey/:env/api/sql`
+- 业务鉴权：`GET /p/:projectKey/:env/api/auth/me`
+- 业务短路由 API：`/p/:projectKey/:env/api/:apiKey`
+
 ## 2. 平台管理（控制面，admin）
 
 前缀：`/api/platform`
@@ -31,6 +78,8 @@
 - `POST /projects/:projectKey/envs/:env/nginx/reload`：重载 Nginx
 - `GET /projects/:projectKey/envs/:env/vars`：变量列表
 - `PUT /projects/:projectKey/envs/:env/vars/:varKey`：新增/更新变量
+- `GET /settings`：读取运行配置（来源：`gateway_platform_settings`）
+- `PUT /settings/:settingKey`：更新运行配置项（建议保存后重启服务）
 
 创建项目响应会包含 `defaultEnv` 字段（若开启自动初始化）：
 
@@ -116,9 +165,9 @@ Nginx 配置响应示例：
     "settings": {
       "serverName": "crm.local",
       "listenPort": 80,
-      "frontendRoot": "/usr/share/nginx/html",
+      "frontendRoot": "/app/frontend-app/dist",
       "frontendDir": "/app/runtime/project-web/crm/prod/current",
-      "upstreamOrigin": "http://gateway:3000"
+      "upstreamOrigin": "http://127.0.0.1:3000"
     },
     "configText": "server { ... }"
   }
@@ -127,7 +176,7 @@ Nginx 配置响应示例：
 
 ## 3. 管理员能力（admin）
 
-前缀：`/api/admin`
+前缀：`/api/v2/admin`（兼容旧前缀：`/api/admin`）
 
 - `GET /audit-logs`：审计检索
 - `GET /users`：用户列表

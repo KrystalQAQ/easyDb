@@ -2,16 +2,20 @@
   "name": "mysql-sql-gateway",
   "version": "1.0.0",
   "description": "A secure SQL-like gateway for frontend apps to operate MySQL",
-  "main": "src/server.js",
+  "main": "src/server.ts",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "tsx src/server.ts",
+    "dev": "nodemon --exec \"tsx src/server.ts\"",
     "frontend:dev": "pnpm --dir frontend-app dev",
     "frontend:build": "pnpm --dir frontend-app build",
-    "hash:password": "node scripts/hash-password.js",
-    "auth:init": "node scripts/init-auth-db.js",
-    "platform:init": "node scripts/init-platform-db.js",
-    "gen:jwt-secret": "node scripts/generate-jwt-secret.js"
+    "typecheck": "tsc -p tsconfig.json",
+    "typecheck:frontend": "pnpm --dir frontend-app exec tsc -p tsconfig.json",
+    "typecheck:mcp": "pnpm --dir src/mcp exec tsc -p tsconfig.json",
+    "typecheck:all": "npm run typecheck && npm run typecheck:frontend && npm run typecheck:mcp",
+    "hash:password": "tsx scripts/hash-password.ts",
+    "auth:init": "tsx scripts/init-auth-db.ts",
+    "platform:init": "tsx scripts/init-platform-db.ts",
+    "gen:jwt-secret": "tsx scripts/generate-jwt-secret.ts"
   },
   "keywords": [
     "mysql",
@@ -32,9 +36,13 @@
     "knex": "^3.1.0",
     "multer": "^2.0.2",
     "mysql2": "^3.14.3",
-    "node-sql-parser": "^5.3.13"
+    "node-sql-parser": "^5.3.13",
+    "tsx": "^4.20.5"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.4.0",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.6.3"
   }
 }

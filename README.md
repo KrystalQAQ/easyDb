@@ -3,6 +3,13 @@
 一个统一网关，面向前端提供安全 SQL 接口，并支持多项目多环境隔离。
 核心目标：`单端口统一接入 + 项目前缀路由 + 平台化配置管理`。
 
+当前支持两种业务访问方式：
+
+- 域名模式：`https://test1.example.com/`
+- 内网路径模式：`http://10.0.0.8/p/test1/prod/`
+
+前端可根据浏览器当前 URL 自动判断运行基座：命中 `/p/{projectKey}/{env}/` 时走路径模式，否则走域名模式。
+
 ## 演示站点
 
 🌐 [http://admin.254253.xyz:3080](http://admin.254253.xyz:3080)
@@ -22,9 +29,12 @@
 
 ### 架构分层
 
-- 接入层：`Nginx` 承载前端静态资源，并将固定接口 `/api/auth/login`、`/api/auth/me`、`/api/sql`、`/api/health` 转发到网关
+- 接入层：`Nginx` 承载前端静态资源，并支持两套入口
+  - 域名模式：`server_name` 绑定单项目入口
+  - 路径模式：统一入口 `/p/{projectKey}/{env}/...`
+  - 两种模式下固定接口 `/api/auth/login`、`/api/auth/me`、`/api/sql`、`/api/health` 都会被转发到网关
 - 网关层：`Node.js + Express`，负责统一鉴权、项目路由解析、SQL 安全校验、审计与限流
-- 平台控制层：`/api/platform/*` 与 `/api/admin/*`，提供项目开通、环境参数、变量管理、Nginx 配置管理、用户与审计能力
+- 平台控制层：`/api/v2/*`（兼容 `/api/platform/*` 与 `/api/admin/*`），提供项目开通、环境参数、变量管理、Nginx 配置管理、用户与审计能力
 - 数据层：
   - 平台库（如 `easydb_platform`）：存放 `gateway_users`、项目/环境/变量元数据
   - 业务库（每项目每环境）：存放业务表（可自动初始化）
@@ -39,7 +49,7 @@ Nginx (static + /api reverse proxy)
     |
     v
 EasyDB Gateway (Express)
-  ├─ Auth/Admin APIs (/api/auth/*, /api/admin/*, /api/platform/*)
+  ├─ Auth/Admin APIs (/api/auth/*, /api/v2/*, /api/admin/*, /api/platform/*)
   ├─ Data APIs (/api/gw/:projectKey/:env/*)
   ├─ SQL Policy + RateLimit + Audit
   └─ Nginx Conf Manager (generate/save/reload)
@@ -97,19 +107,10 @@ cp .env.example .env
 
 重点变量：
 
-- 基础：`PORT`、`DB_*`
-- 鉴权：`REQUIRE_AUTH`、`JWT_SECRET`、`JWT_ISSUER`、`JWT_AUDIENCE`、`AUTH_PROVIDER`
-- 跨子域授权码登录：`AUTH_CODE_ENABLED`、`AUTH_CODE_TTL_SECONDS`、`AUTH_CODE_ALLOWED_REDIRECT_ORIGINS`
-- SQL 策略：`ALLOWED_SQL_TYPES`、`ALLOWED_TABLES`、`ROLE_TABLES`
-- 加密：`REQUEST_ENCRYPTION_*`
-- 默认关闭请求体加密（`REQUEST_ENCRYPTION_ENABLED=false`），按需开启
-- 多项目默认上下文：`DEFAULT_PROJECT_KEY`、`DEFAULT_PROJECT_ENV`
-- 平台配置中心：`CONFIG_ENCRYPTION_KEY`、`PLATFORM_*`
-- 创建项目自动初始化默认环境（可关闭）：`PLATFORM_AUTO_CREATE_DEFAULT_ENV`
-- 是否自动建库（默认开启）：`PLATFORM_AUTO_CREATE_DATABASE`
-- 是否自动初始化基础表：`PLATFORM_AUTO_INIT_TABLES`、`PLATFORM_DEFAULT_INIT_TABLES`
-- Nginx 管理：`NGINX_*`（创建项目自动生成 conf，后台可编辑并触发重载）
-- 项目前端目录：可按模板自动创建（`NGINX_PROJECT_FRONTEND_*`）
+- 外部环境变量默认只需要：`PORT`
+- 若你希望跳过初始化引导，也可额外提供：`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`
+- 其余运行参数（JWT、限流、SQL 策略、加密、Nginx 模板等）统一存放在数据库表 `gateway_platform_settings`
+- 首次启动会自动生成密钥并写入 `gateway_platform_settings`，后续重启不会变化
 
 ### 3) 初始化表
 
@@ -129,6 +130,13 @@ npm run dev
 # or
 npm start
 ```
+
+首次启动若未配置数据库，系统会进入初始化引导模式：
+
+- 打开控制台首页后自动跳转到 `/setup`
+- 填写 DB 连接信息并提交
+- 后端会写入 `runtime/bootstrap-db.json`，并自动初始化系统表（包含 `gateway_users` 登录表，若目标库为空还会补默认管理员）
+- 控制台顶部提供“系统重置”入口，会删除 `bootstrap-db.json` 并回到初始化向导
 
 可选：本地调试新版控制台
 
@@ -152,6 +160,33 @@ pnpm frontend:dev
 - SQL 执行路径仍按 `projectKey/env` 进行隔离
 - `/api/gw/:projectKey/:env/auth/login` 已废弃，调用会返回 `410`
 
+### A.1 v2 并行接口（可直接发布）
+
+- `POST /api/v2/auth/login`
+- `POST /api/v2/auth/authorize`
+- `POST /api/v2/auth/token`
+- `GET  /api/v2/auth/me`
+- `GET  /api/v2/projects`
+- `POST /api/v2/projects`
+- `DELETE /api/v2/projects/:projectKey`
+- `GET  /api/v2/projects/:projectKey/envs`
+- `GET  /api/v2/projects/:projectKey/envs/:env`
+- `PUT  /api/v2/projects/:projectKey/envs/:env`
+- `GET  /api/v2/system/settings`
+- `PUT  /api/v2/system/settings/:settingKey`
+- `PUT  /api/v2/auth/me/avatar`
+
+同时，v2 已补齐控制面全量能力，按以下规则可直接迁移：
+
+- 旧：`/api/platform/...`
+- 新：`/api/v2/...`
+
+例如：
+
+- `/api/platform/projects/:projectKey/envs/:env/nginx` → `/api/v2/projects/:projectKey/envs/:env/nginx`
+- `/api/platform/projects/:projectKey/envs/:env/apis` → `/api/v2/projects/:projectKey/envs/:env/apis`
+- `/api/platform/projects/:projectKey/envs/:env/api-keys` → `/api/v2/projects/:projectKey/envs/:env/api-keys`
+
 ### B. 平台管理（仅 admin）
 
 - `GET  /api/platform/projects`
@@ -165,6 +200,8 @@ pnpm frontend:dev
 - `POST /api/platform/projects/:projectKey/envs/:env/nginx/reload`
 - `GET  /api/platform/projects/:projectKey/envs/:env/vars`
 - `PUT  /api/platform/projects/:projectKey/envs/:env/vars/:varKey`
+- `GET  /api/platform/settings`
+- `PUT  /api/platform/settings/:settingKey`
 
 说明：
 
@@ -174,11 +211,12 @@ pnpm frontend:dev
 - 环境详情接口会返回 `policy`、`db` 和 `requestEncryptionPasswordEnabled`，便于前端完整展示环境参数
 - 若开启 Nginx 管理，创建项目会同步生成 conf 文件（默认目录 `runtime/nginx/conf.d`）
 - 创建项目时可自动创建该项目的前端发布目录（默认 `runtime/project-web/{projectKey}/{env}/current`）
+- 运行时配置统一落在 `gateway_platform_settings`，`/api/platform/settings/*` 可在线维护（建议改完重启）
 
 ### C. 管理员能力（仅 admin）
 
-- `GET /api/admin/audit-logs`
-- `GET/POST/PATCH/DELETE /api/admin/users...`
+- `GET /api/v2/admin/audit-logs`（兼容 `/api/admin/audit-logs`）
+- `GET/POST/PATCH/DELETE /api/v2/admin/users...`（兼容 `/api/admin/users...`）
 
 ### D. 兼容旧接口
 
@@ -280,23 +318,92 @@ pnpm frontend:dev
 启动：
 
 ```bash
-pnpm frontend:build
 docker compose up -d --build
 ```
 
 说明：
 
+- 现在是单镜像单容器（容器内同时运行 Nginx + Node）
+- 默认不依赖 `.env` 中的 DB 参数，首次启动可直接在 `/setup` 填写数据库连接
+- 初始化完成后会写入 `runtime/bootstrap-db.json`（已通过 `./runtime:/app/runtime` 持久化）
+- 内网无三级域名时可使用路径模式访问项目：`/p/{projectKey}/{env}/`
+  - 业务前端：`http://<IP>/p/{projectKey}/{env}/`
+  - 业务 SQL：`POST http://<IP>/p/{projectKey}/{env}/api/sql`
+  - 业务鉴权：`GET http://<IP>/p/{projectKey}/{env}/api/auth/me`
 - 创建项目时会自动在 `runtime/nginx/conf.d` 下生成对应 conf
 - 在控制台“项目配置中心”可直接编辑该 conf
-- 保存后可点“保存后重载 Nginx”（依赖 `NGINX_RELOAD_COMMAND`）
-- 推荐在 `.env` 设置：`NGINX_RELOAD_COMMAND=docker exec easydb-nginx nginx -s reload`
-- 默认站点会拦截 `/api/sql`（防止误命中 `_` 站点导致落到 `default/prod`）
-- 项目前端建议发布到：`runtime/project-web/{projectKey}/{env}/current`（容器内映射 `/project-web/...`）
+- 保存后可点“保存后重载 Nginx”（容器内执行 `nginx -s reload`）
+- 管理后台前端已内置到镜像，默认由 Nginx 直接托管
+- 项目前端建议发布到：`runtime/project-web/{projectKey}/{env}/current`（容器内映射 `/app/runtime/project-web/...`）
 
 ## GitHub Actions（已同步）
 
 - 工作流：`.github/workflows/docker-image.yml`
-- 现已包含前端构建并上传制品（`frontend-dist`）
-- 现已构建并推送双镜像到 GHCR：
-  - `ghcr.io/<owner>/<repo>/gateway`
-  - `ghcr.io/<owner>/<repo>/nginx`
+- `pull_request` 会执行后端类型检查、前端 lint、前端构建，用来拦截无效发布
+- `push` 到 `main/master`、推送 `v*` 标签、以及手动触发 `workflow_dispatch` 时，会构建并推送多架构单镜像到 GHCR
+- 默认镜像仓库：`ghcr.io/<owner>/<repo>/easydb`
+- 默认标签规则：
+  - 分支推送：分支名
+  - 标签推送：git tag，例如 `v1.2.0`
+  - 提交标识：短 SHA
+  - 默认分支额外附带 `latest`
+- 手动触发工作流时，可额外提供 `image_tag` 生成一个自定义标签
+- 工作流摘要会直接输出可执行部署命令
+
+## Docker 发布与部署
+
+当前发布模型已经统一为“前端构建产物 + Node 网关 + Nginx”的单镜像。
+
+### 直接部署
+
+```bash
+EASYDB_IMAGE=ghcr.io/<owner>/<repo>/easydb:latest ./deploy/easydb.sh install
+```
+
+现在 `.env` 不是必需项。
+
+- 不提供 `.env`：容器会直接启动，首次打开控制台进入 `/setup`，在线填写数据库连接并自动初始化系统表
+- 提供 `.env`：容器会带上其中的运行时环境变量启动；如果你已经提前写好了 `DB_*`，也可以跳过引导
+
+若是升级已有环境：
+
+```bash
+EASYDB_IMAGE=ghcr.io/<owner>/<repo>/easydb:latest ./deploy/easydb.sh update
+```
+
+### 只生成部署命令
+
+如果你想先让脚本帮你拼好完整的 docker 命令，再自行复制到服务器执行：
+
+```bash
+EASYDB_IMAGE=ghcr.io/<owner>/<repo>/easydb:latest ./deploy/easydb.sh command install
+```
+
+升级命令同理：
+
+```bash
+EASYDB_IMAGE=ghcr.io/<owner>/<repo>/easydb:latest ./deploy/easydb.sh command update
+```
+
+### 可覆盖的部署变量
+
+- `EASYDB_IMAGE`: 完整镜像名，优先级最高
+- `EASYDB_IMAGE_REPOSITORY`: 镜像仓库，默认 `ghcr.io/krystalqaq/easydb/easydb`
+- `EASYDB_IMAGE_TAG`: 镜像标签，默认 `latest`
+- `EASYDB_BASE_DIR`: 部署根目录，默认 `/opt/easydb-platform`
+- `EASYDB_DOCKER_NETWORK`: Docker 网络名，默认 `easydb-platform-net`
+- `EASYDB_CONTAINER_NAME`: 容器名，默认 `easydb`
+- `EASYDB_PORT`: 对外端口，默认 `3080`
+
+### 需要显式初始化数据库时
+
+只有在你明确要走“命令行预初始化数据库”时，才需要准备 `.env`，然后执行：
+
+```bash
+./deploy/easydb.sh init-db
+```
+
+这一步会在容器内执行：
+
+- `npm run auth:init`
+- `npm run platform:init`
