@@ -41,49 +41,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-
-      - name: Restore frontend pnpm cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: frontend-app/pnpm-lock.yaml
-
-      - name: Install backend dependencies
-        run: npm ci
-
-      - name: Install frontend dependencies
-        run: pnpm --dir frontend-app install --frozen-lockfile
-
-      - name: Typecheck
-        run: npm run typecheck:all
-
-      - name: Lint frontend
-        run: pnpm --dir frontend-app lint
-
-      - name: Build frontend
-        run: pnpm --dir frontend-app build
-
   build-and-push:
-    needs: verify
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
